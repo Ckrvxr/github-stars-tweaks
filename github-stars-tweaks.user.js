@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub Stars Tweaks
 // @namespace    https://github.com/
-// @version      1.0.0
+// @version      1.1.0
 // @description  GitHub stars page tweaks
 // @author       Ckrvxr
 // @license      Apache-2.0
@@ -91,18 +91,6 @@
     return null;
   }
 
-  function orderLists(lists, order) {
-    const byHref = new Map(lists.map(list => [list.href, list]));
-    const result = [];
-    for (const href of Array.isArray(order) ? order : []) {
-      if (byHref.has(href)) {
-        result.push(byHref.get(href));
-        byHref.delete(href);
-      }
-    }
-    return result.concat([...byHref.values()]);
-  }
-
   function selectRepositories(repositories, membership, preserveListOrder = false) {
     if (!membership) return repositories;
     if (!preserveListOrder) return repositories.filter(repository => membership.has(repository.key));
@@ -112,7 +100,7 @@
 
   if (typeof module === 'object' && module.exports && typeof window === 'undefined') {
     module.exports = { getRoute, extractLists, revealSelection, getProfileElements,
-      buildStarsUrl, nextPageUrl, orderLists, selectRepositories };
+      buildStarsUrl, nextPageUrl, selectRepositories };
     return;
   }
 
@@ -133,15 +121,88 @@
     #gst-navigation {
       position: sticky;
       top: 64px;
+      z-index: 90;
       max-height: calc(100vh - 80px);
       overflow: auto;
       padding: 4px 0 16px;
       color: var(--fgColor-default, var(--color-fg-default, #1f2328));
       font-size: 14px;
     }
+    #gst-navigation:has(#gst-manage-menu[open]) { overflow: visible !important; }
     #gst-navigation .gst-section { display: flex; align-items: center; justify-content: space-between; margin: 18px 8px 7px; color: var(--fgColor-muted, var(--color-fg-muted, #656d76)); font-size: 12px; font-weight: 600; }
-    #gst-manage { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font-size: 20px; line-height: 1; }
-    #gst-manage:hover { background: var(--bgColor-neutral-muted, var(--color-neutral-muted, #eaeef2)); }
+    #gst-manage-menu { position: relative; display: inline-block; }
+    #gst-manage-menu summary { list-style: none; }
+    #gst-manage-menu summary::-webkit-details-marker { display: none; }
+    #gst-manage { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font-size: 20px; line-height: 1; user-select: none; }
+    #gst-manage:hover, #gst-manage-menu[open] > #gst-manage { background: var(--bgColor-neutral-muted, var(--color-neutral-muted, #eaeef2)); color: var(--fgColor-default, var(--color-fg-default, #1f2328)); }
+    .gst-menu-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      z-index: 100;
+      width: max-content;
+      min-width: 180px;
+      padding: 8px 0;
+      background-color: var(--bgColor-default, var(--color-canvas-default, #fff));
+      border: 1px solid var(--borderColor-muted, var(--color-border-muted, #d0d7de));
+      border-radius: 12px;
+      box-shadow: var(--shadow-floating-large, 0 8px 24px rgba(140, 149, 159, 0.2));
+    }
+    .gst-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 16px;
+      font-size: 14px;
+      line-height: 20px;
+      font-weight: 400;
+      color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+      text-align: left;
+      text-decoration: none;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .gst-menu-item:hover:not(:disabled) {
+      background-color: var(--bgColor-neutral-muted, var(--color-neutral-muted, #eaeef2));
+      color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+    }
+    .gst-menu-item:focus {
+      outline: none;
+      background-color: var(--bgColor-neutral-muted, var(--color-neutral-muted, #eaeef2));
+    }
+    .gst-menu-item:disabled {
+      color: var(--fgColor-muted, var(--color-fg-muted, #8c959f));
+      cursor: not-allowed;
+      background: transparent !important;
+    }
+    .gst-menu-item .octicon {
+      flex-shrink: 0;
+      color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+      fill: currentColor;
+    }
+    .gst-menu-item:disabled .octicon {
+      color: var(--fgColor-muted, var(--color-fg-muted, #8c959f));
+      opacity: 0.6;
+    }
+    .gst-menu-item--danger:not(:disabled) {
+      color: var(--fgColor-danger, var(--color-danger-fg, #cf222e));
+    }
+    .gst-menu-item--danger:not(:disabled) .octicon {
+      color: var(--fgColor-danger, var(--color-danger-fg, #cf222e));
+    }
+    .gst-menu-item--danger:hover:not(:disabled) {
+      background-color: var(--bgColor-danger-muted, rgba(255, 129, 130, 0.15));
+    }
+    .gst-menu-divider {
+      height: 1px;
+      margin: 8px 0;
+      background-color: var(--borderColor-muted, var(--color-border-muted, #d0d7de));
+    }
     #gst-navigation .gst-link {
       display: flex;
       align-items: baseline;
@@ -257,16 +318,6 @@
     #gst-results-status svg { display: none !important; }
     #gst-results-status:empty { display: none; }
     user-list-menu dialog[data-gst-positioning] { opacity: 0 !important; }
-    .gst-dialog { width: min(440px, calc(100vw - 32px)); max-height: min(80vh, 700px); overflow: auto; box-sizing: border-box; padding: 20px; border: 1px solid var(--borderColor-default, var(--color-border-default, #d1d9e0)); border-radius: 8px; background: var(--bgColor-default, var(--color-canvas-default, #fff)); color: var(--fgColor-default, var(--color-fg-default, #1f2328)); }
-    .gst-dialog::backdrop { background: rgba(31, 35, 40, .4); }
-    .gst-dialog h2 { margin: 0 0 16px; font-size: 18px; }
-    .gst-dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-    .gst-manage-actions { display: grid; gap: 8px; }
-    .gst-manage-actions button { text-align: left; }
-    #gst-order-items { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-    #gst-order-items li { display: flex; align-items: center; gap: 6px; }
-    #gst-order-items li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-    #gst-order-items button { min-width: 34px; }
     .gst-stream { grid-column: 1 / -1; display: flex; justify-content: center; gap: 8px; align-items: center; min-height: 24px; margin-top: 8px; color: var(--fgColor-muted, var(--color-fg-muted, #656d76)); font-size: 12px; }
     .gst-empty { grid-column: 1 / -1; margin: 12px 0; color: var(--fgColor-muted, var(--color-fg-muted, #656d76)); }
     @media (max-width: 767px) {
@@ -340,38 +391,10 @@
     return button;
   }
 
-  function makeDialog(id, title) {
-    document.getElementById(id)?.remove();
-    const dialog = document.createElement('dialog');
-    dialog.id = id;
-    dialog.className = 'gst-dialog';
-    const heading = document.createElement('h2');
-    heading.id = `${id}-title`;
-    heading.textContent = title;
-    dialog.setAttribute('aria-labelledby', heading.id);
-    dialog.append(heading);
-    dialog.addEventListener('close', () => dialog.remove());
-    document.body.append(dialog);
-    return dialog;
-  }
-
-  function orderKey(owner) {
-    return `gst-list-order:${owner.toLowerCase()}`;
-  }
-
-  async function savedOrder(owner) {
-    try {
-      return typeof GM_getValue === 'function' ? await GM_getValue(orderKey(owner), []) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  async function showLists(nav, route, lists) {
-    const order = await savedOrder(route.owner);
+  function showLists(nav, route, lists) {
     const current = getRoute(location.href);
     if (!nav.isConnected || !current || current.owner.toLowerCase() !== route.owner.toLowerCase()) return;
-    renderNavigation(nav, current, orderLists(lists, order), null);
+    renderNavigation(nav, current, lists, null);
   }
 
   function prepareCreateDialog(doc, route) {
@@ -387,80 +410,74 @@
     document.body.append(element);
   }
 
-  function openOrderDialog(nav) {
-    const route = getRoute(location.href);
-    if (!route) return;
-    const dialog = makeDialog('gst-order-dialog', 'Reorder lists');
-    const hint = document.createElement('p');
-    hint.textContent = 'Use the arrows to arrange lists. The order is saved in this script manager.';
-    const items = document.createElement('ol');
-    items.id = 'gst-order-items';
-    for (const list of nav.__gstLists || []) {
-      const row = document.createElement('li');
-      row.dataset.href = list.href;
-      const name = document.createElement('span');
-      name.textContent = list.name;
-      const up = makeButton('↑', null, () => row.previousElementSibling?.before(row));
-      const down = makeButton('↓', null, () => row.nextElementSibling?.after(row));
-      up.classList.add('gst-order-up');
-      down.classList.add('gst-order-down');
-      up.setAttribute('aria-label', `Move ${list.name} up`);
-      down.setAttribute('aria-label', `Move ${list.name} down`);
-      row.append(name, up, down);
-      items.append(row);
-    }
-    const status = document.createElement('p');
-    status.setAttribute('role', 'status');
-    const actions = document.createElement('div');
-    actions.className = 'gst-dialog-actions';
-    const save = makeButton('Save order', 'gst-order-save', async () => {
-      const order = [...items.children].map(row => row.dataset.href);
-      try {
-        if (typeof GM_setValue !== 'function') throw new Error('Userscript storage unavailable');
-        await GM_setValue(orderKey(route.owner), order);
-        if (nav.isConnected) renderNavigation(nav, getRoute(location.href) || route, orderLists(nav.__gstLists, order), null);
-        dialog.close();
-      } catch {
-        status.textContent = 'Could not save the order in the script manager.';
-      }
-    });
-    actions.append(save, makeButton('Cancel', null, () => dialog.close()));
-    dialog.append(hint, items, status, actions);
-    dialog.showModal();
-  }
+  function createManageMenu(route) {
+    const details = document.createElement('details');
+    details.id = 'gst-manage-menu';
+    details.className = 'details-reset details-overlay position-relative';
 
-  function openManagement(nav) {
-    const route = getRoute(location.href);
-    if (!route) return;
-    const dialog = makeDialog('gst-manage-dialog', 'Manage lists');
-    const actions = document.createElement('div');
-    actions.className = 'gst-manage-actions';
-    const own = document.querySelector('meta[name="user-login"]')?.content.toLowerCase() === route.owner.toLowerCase();
-    const nativeDialog = selector => document.querySelector(selector);
-    const openNative = selector => {
-      const target = nativeDialog(selector);
-      if (!target) return;
-      dialog.close();
-      target.showModal();
+    const summary = document.createElement('summary');
+    summary.id = 'gst-manage';
+    summary.setAttribute('aria-label', 'Manage lists');
+    summary.setAttribute('aria-haspopup', 'menu');
+    summary.setAttribute('role', 'button');
+    summary.textContent = '⋯';
+
+    const menu = document.createElement('div');
+    menu.className = 'gst-menu-dropdown';
+    menu.setAttribute('role', 'menu');
+
+    const makeMenuItem = (id, label, iconSvg, isDanger, getTarget) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.id = id;
+      button.className = `gst-menu-item${isDanger ? ' gst-menu-item--danger' : ''}`;
+      button.setAttribute('role', 'menuitem');
+      button.innerHTML = `${iconSvg}<span>${label}</span>`;
+      button.addEventListener('click', () => {
+        details.open = false;
+        const target = document.querySelector(getTarget());
+        if (target) target.showModal();
+      });
+      return button;
     };
-    const create = makeButton('Create list', 'gst-manage-create', () => openNative('#gst-native-create dialog'));
-    const edit = makeButton('Edit current list', 'gst-manage-edit', () => openNative('dialog[id^="edit-list-dialog-"]'));
-    const remove = makeButton('Delete current list', 'gst-manage-delete', () => openNative('dialog[id^="delete-list-dialog-"]'));
-    create.disabled = !own || !nativeDialog('#gst-native-create dialog');
-    edit.disabled = !own || route.kind !== 'list' || !nativeDialog('dialog[id^="edit-list-dialog-"]');
-    remove.disabled = !own || route.kind !== 'list' || !nativeDialog('dialog[id^="delete-list-dialog-"]');
-    const reorder = makeButton('Reorder lists', 'gst-manage-order', () => { dialog.close(); openOrderDialog(nav); });
-    reorder.disabled = !nav.__gstLists?.length;
-    actions.append(create, edit, remove, reorder);
-    dialog.append(actions);
-    if (own && route.kind === 'all') {
-      const hint = document.createElement('p');
-      hint.textContent = 'Select a list to edit or delete it.';
-      dialog.append(hint);
-    }
-    dialog.append(makeButton('Close', null, () => dialog.close()));
-    dialog.lastElementChild.style.marginTop = '16px';
-    dialog.showModal();
+
+    const createIcon = '<svg aria-hidden="true" height="16" width="16" viewBox="0 0 16 16" class="octicon octicon-plus"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"></path></svg>';
+    const editIcon = '<svg aria-hidden="true" height="16" width="16" viewBox="0 0 16 16" class="octicon octicon-pencil"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086ZM11.189 6.25 9.75 4.81 3.286 11.273l-.548 1.92 1.92-.549L11.189 6.25Z"></path></svg>';
+    const deleteIcon = '<svg aria-hidden="true" height="16" width="16" viewBox="0 0 16 16" class="octicon octicon-trash"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.75 1.75 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.576l-.66-6.6a.75.75 0 1 1 1.492-.149ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"></path></svg>';
+
+    const createItem = makeMenuItem('gst-manage-create', 'Create list', createIcon, false, () => '#gst-native-create dialog');
+    const editItem = makeMenuItem('gst-manage-edit', 'Edit current list', editIcon, false, () => 'dialog[id^="edit-list-dialog-"]');
+    const deleteItem = makeMenuItem('gst-manage-delete', 'Delete current list', deleteIcon, true, () => 'dialog[id^="delete-list-dialog-"]');
+
+    const divider = document.createElement('div');
+    divider.className = 'gst-menu-divider';
+    divider.setAttribute('role', 'separator');
+
+    menu.append(createItem, divider, editItem, deleteItem);
+
+    const updateState = () => {
+      const currentRoute = getRoute(location.href) || route;
+      const own = document.querySelector('meta[name="user-login"]')?.content.toLowerCase() === currentRoute.owner.toLowerCase();
+      createItem.disabled = !own || !document.querySelector('#gst-native-create dialog');
+      editItem.disabled = !own || currentRoute.kind !== 'list' || !document.querySelector('dialog[id^="edit-list-dialog-"]');
+      deleteItem.disabled = !own || currentRoute.kind !== 'list' || !document.querySelector('dialog[id^="delete-list-dialog-"]');
+      if (currentRoute.kind === 'all') {
+        editItem.title = 'Select a list to edit it';
+        deleteItem.title = 'Select a list to delete it';
+      } else {
+        editItem.removeAttribute('title');
+        deleteItem.removeAttribute('title');
+      }
+    };
+
+    updateState();
+    details.addEventListener('toggle', () => {
+      if (details.open) updateState();
+    });
+    summary.addEventListener('click', updateState);
+
+    details.append(summary, menu);
+    return details;
   }
 
   function renderNavigation(nav, route, lists, status) {
@@ -471,13 +488,7 @@
     section.className = 'gst-section';
     const sectionLabel = document.createElement('span');
     sectionLabel.textContent = 'Lists';
-    const manage = document.createElement('button');
-    manage.id = 'gst-manage';
-    manage.type = 'button';
-    manage.textContent = '⋯';
-    manage.setAttribute('aria-label', 'Manage lists');
-    manage.addEventListener('click', () => openManagement(nav));
-    section.append(sectionLabel, manage);
+    section.append(sectionLabel, createManageMenu(route));
     links.append(section);
     for (const list of lists) links.append(makeLink(list.name, list.href, list.count));
     if (status) {
@@ -515,7 +526,7 @@
       if (!nav.isConnected || !current || current.owner.toLowerCase() !== route.owner.toLowerCase()) return;
       prepareCreateDialog(doc, route);
       populateLanguages(doc);
-      await showLists(nav, current, extractLists(doc, route.owner));
+      showLists(nav, current, extractLists(doc, route.owner));
     } catch {
       if (nav.isConnected) renderNavigation(nav, getRoute(location.href) || route, [], 'error');
     }
@@ -1085,14 +1096,14 @@
     }
   }, true);
   document.addEventListener('click', event => {
-    for (const menu of document.querySelectorAll('#gst-filters .gst-filter-menu[open]')) {
+    for (const menu of document.querySelectorAll('#gst-filters .gst-filter-menu[open], #gst-manage-menu[open]')) {
       if (!menu.contains(event.target)) menu.open = false;
     }
   });
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
-    const menu = document.querySelector('#gst-filters .gst-filter-menu[open]');
-    if (menu) { menu.open = false; menu.querySelector('summary').focus(); }
+    const menu = document.querySelector('#gst-filters .gst-filter-menu[open], #gst-manage-menu[open]');
+    if (menu) { menu.open = false; menu.querySelector('summary')?.focus(); }
   });
   function resetCachedPage() {
     if (!pageSnapshot?.frame.isConnected) return;

@@ -709,24 +709,12 @@ test('restores interactive controls after GitHub restores a cached page', () => 
   })()`);
   browser('wait', '--fn', `document.querySelectorAll('#gst-navigation .gst-link').length === 3`);
   browser('click', '#gst-manage');
-  assert.equal(browser('eval', `document.querySelector('#gst-manage-dialog')?.open`), true);
-  browser('click', '#gst-manage-dialog > button');
+  assert.equal(browser('eval', `document.querySelector('#gst-manage-menu')?.open`), true);
+  browser('click', '#gst-manage');
+  assert.equal(browser('eval', `document.querySelector('#gst-manage-menu')?.open`), false);
   browser('fill', '#gst-query', 'nonexistent');
   browser('click', '#gst-submit');
   browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('0 matching repositories')`);
-});
-
-test('stores a manual list order in the userscript manager and restores it after reload', () => {
-  assert.equal(current().toolbar, true);
-  browser('click', '#gst-manage');
-  browser('click', '#gst-manage-order');
-  browser('click', '#gst-order-items [data-href="/stars/Fixture/lists/infra"] .gst-order-up');
-  browser('click', '#gst-order-save');
-  const names = () => browser('eval', `Array.from(document.querySelectorAll('#gst-navigation .gst-link')).slice(1).map(e => e.querySelector('.gst-name').textContent)`);
-  assert.deepEqual(names(), ['Infrastructure', 'AI']);
-  browser('reload');
-  browser('wait', '--fn', `document.querySelectorAll('#gst-navigation .gst-link').length === 3`);
-  assert.deepEqual(names(), ['Infrastructure', 'AI']);
 });
 
 test('maps a GitHub recently starred URL to the default option', () => {

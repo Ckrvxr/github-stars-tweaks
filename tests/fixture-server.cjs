@@ -65,8 +65,6 @@ function listPage(url, slug) {
 }
 
 const fixtureClient = `
-  window.GM_getValue = (key, fallback) => { const value = localStorage.getItem(key); return value === null ? fallback : JSON.parse(value); };
-  window.GM_setValue = (key, value) => localStorage.setItem(key, JSON.stringify(value));
   document.addEventListener('click', async event => {
     const link = event.target.closest('a[data-turbo-frame="user-profile-frame"]');
     if (!link) return;

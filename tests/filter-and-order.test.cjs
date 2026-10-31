@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildStarsUrl, nextPageUrl, orderLists, selectRepositories } = require('../github-stars-tweaks.user.js');
+const { buildStarsUrl, nextPageUrl, selectRepositories } = require('../github-stars-tweaks.user.js');
 
 const origin = 'https://github.com';
 
@@ -40,13 +40,6 @@ test('follows GitHub list and overview next links without leaving the current sc
   assert.equal(nextPageUrl(pageWithLinks([{ text: 'Next', href: 'https://example.com/Ckrvxr?tab=stars' }]), all), null);
   assert.equal(nextPageUrl(pageWithLinks([{ text: 'Next', href: '/Other?tab=stars' }]), all), null);
   assert.equal(nextPageUrl(pageWithLinks([{ text: 'Next', href: '/stars/Ckrvxr/lists/other?page=2' }]), list), null);
-});
-
-test('applies a saved manual order and appends newly discovered lists', () => {
-  const lists = [{ href: '/a' }, { href: '/b' }, { href: '/c' }];
-  assert.deepEqual(orderLists(lists, ['/c', '/missing', '/a', '/a']).map(x => x.href), ['/c', '/a', '/b']);
-  assert.deepEqual(orderLists(lists, null).map(x => x.href), ['/a', '/b', '/c']);
-  assert.deepEqual(lists.map(x => x.href), ['/a', '/b', '/c'], 'does not mutate the source');
 });
 
 test('filters a whole category while preserving GitHub result order', () => {
