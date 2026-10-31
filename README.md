@@ -2,6 +2,10 @@
 
 A userscript designed to make GitHub Stars feel like browsing a curated bookshelf, enabling seamless continuous navigation across lists.
 
+## Picture
+
+<img width="1470" height="802" alt="PixPin_2026-11-01_01-36-19" src="https://github.com/user-attachments/assets/7250ae3c-8eb8-4f52-8e48-333d90f92681" />
+
 ## Features
 
 - **Side-by-side Switching**: View existing lists in the sidebar and switch between them with a single click. The repository count for the current scope is displayed next to the title, fully preserving browser back/forward history navigation.
