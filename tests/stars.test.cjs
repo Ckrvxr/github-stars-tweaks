@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getRoute, extractLists, prepareListPagination, revealSelection, getProfileElements } = require('../github-stars-tweaks.user.js');
+const { getRoute, extractLists, revealSelection, getProfileElements } = require('../github-stars-tweaks.user.js');
 
 test('recognizes the Stars overview and keeps the owner', () => {
   assert.deepEqual(getRoute('https://github.com/Ckrvxr?tab=stars&sort=created'), {
@@ -30,20 +30,6 @@ test('selects the sidebar belonging to the profile frame, not an unrelated stick
   const frame = { closest: selector => selector === '.Layout' ? layout : null };
   const doc = { getElementById: id => id === 'user-profile-frame' ? frame : null };
   assert.deepEqual(getProfileElements(doc), { frame, layout, sidebar });
-});
-
-test('keeps list pagination inside the profile frame so the category navigation remains visible', () => {
-  const previous = { dataset: {} };
-  const next = { dataset: {} };
-  const frame = { querySelectorAll: selector => {
-    assert.equal(selector, '#user-list-repositories .pagination a[href]');
-    return [previous, next];
-  } };
-  prepareListPagination(frame);
-  for (const link of [previous, next]) {
-    assert.equal(link.dataset.turboFrame, 'user-profile-frame');
-    assert.equal(link.dataset.turboAction, 'advance');
-  }
 });
 
 test('brings the selected category into view in a horizontally scrolling navigation', () => {

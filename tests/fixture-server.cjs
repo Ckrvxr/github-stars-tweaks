@@ -21,8 +21,8 @@ function card(repo, overview) {
     <div class="f6"><span itemprop="programmingLanguage">${repo.language}</span><a href="/${repo.key}/stargazers">${repo.stars}</a></div></div>`;
 }
 
-function pagination(url, page, total) {
-  if (page * 2 >= total) return '';
+function pagination(url, page, total, pageSize = 2) {
+  if (page * pageSize >= total) return '';
   const next = new URL(url, origin);
   next.searchParams.set('page', String(page + 1));
   return `<div class="paginate-container"><div class="pagination"><a rel="next" href="${next.pathname}${next.search}">Next</a></div></div>`;
@@ -50,7 +50,7 @@ function overview(url) {
     <ul id="stars-language-filter-menu-list"><li><a href="/Fixture?tab=stars&language=Go">Go</a></li><li><a href="/Fixture?tab=stars&language=Python">Python</a></li></ul>
     <div id="stars-sort-menu-list"><a href="/Fixture?tab=stars&language=Go&sort=stars">Most stars</a></div></div>
     <turbo-frame id="user-starred-repos"><div class="d-lg-flex"><div class="col-lg-9">
-    <div class="position-relative"><h2>Starred repositories</h2></div>${p.get('language') ? '<div class="TableObject"><span class="TableObject-item--primary">Filtered repositories</span><a class="issues-reset-query" href="/Fixture?tab=stars">Clear filter</a></div>' : ''}${results.slice((page - 1) * 2, page * 2).map(r => card(r, true)).join('')}${pagination(url, page, results.length)}</div>
+    <div class="position-relative"><h2>Starred repositories</h2></div>${p.get('q') === 'bulk' ? '<div class="TableObject"><span class="TableObject-item--primary">35 stars matching bulk</span></div>' : p.get('language') ? '<div class="TableObject"><span class="TableObject-item--primary">Filtered repositories</span><a class="issues-reset-query" href="/Fixture?tab=stars">Clear filter</a></div>' : ''}${results.slice((page - 1) * 30, page * 30).map(r => card(r, true)).join('')}${pagination(url, page, results.length, 30)}</div>
     <div class="col-lg-3">Starred topics</div></div></turbo-frame></div>`;
 }
 
@@ -60,7 +60,7 @@ function listPage(url, slug) {
   const subset = members.slice((page - 1) * 2, page * 2).map(key => repositories.find(r => r.key === key));
   const name = slug === 'ai' ? 'AI' : 'Infrastructure';
   return `<div><a class="breadcrumb" href="/Fixture?tab=stars">Stars</a><div class="tmp-my-3"><div><h1>${name}</h1>
-    <button data-show-dialog-id="edit-list-dialog-${slug}">Edit list</button>${listHelper(slug)}</div><div>${members.length} repositories</div></div>
+    <button data-show-dialog-id="edit-list-dialog-${slug}">Edit list</button>${listHelper(slug)}</div><div class="color-fg-muted">List description</div><div class="color-fg-muted">${members.length} repositories</div></div>
     <div id="user-list-repositories">${subset.map(r => card(r, false)).join('')}${pagination(url, page, members.length)}</div></div>`;
 }
 
@@ -98,10 +98,11 @@ const server = http.createServer((req, res) => {
     body { font: 14px sans-serif; margin: 0 } .Layout { display: flex } .Layout-sidebar { width: 230px }
     .Layout-main { flex: 1 } .float-right { display: flex } .gst-container { padding: 32px }
     .btn { padding: 6px 10px } .pagination a { display: inline-block; padding: 6px }
+    .tmp-my-3 { margin: 16px 0 } .tmp-my-3 > div:first-child { margin-bottom: 8px }
     .details-overlay[open] > summary::before { content: ''; position: fixed; inset: 0; z-index: 80 }
     .SelectMenu { position: absolute; z-index: 99; background: white }
     @media (max-width: 544px) { .SelectMenu { position: fixed; top: 30%; left: 16px; right: 16px } }
-    </style></head><body><main><div><div class="Layout"><div class="Layout-sidebar"></div><div class="Layout-main">
+    </style></head><body>${url.searchParams.has('without_counter') ? '' : `<a data-tab-item="stars" href="/Fixture?tab=stars"><span data-component="counter">${url.searchParams.has('compact_counter') ? '<span aria-hidden="true">1.2k</span><span>(1,234)</span>' : '40'}</span></a>`}<main><div><div class="Layout"><div class="Layout-sidebar"></div><div class="Layout-main">
     <turbo-frame id="user-profile-frame">${content}</turbo-frame></div></div></div></main>
     <script>${fixtureClient}</script><script>${source}</script></body></html>`;
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });

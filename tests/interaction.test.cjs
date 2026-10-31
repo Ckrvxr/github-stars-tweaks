@@ -59,6 +59,312 @@ test('provides one shared title and filter toolbar and hides duplicated overview
   assert.ok(browser('eval', `!!document.querySelector('#gst-manage')`));
 });
 
+test('removes the redundant sidebar heading and gives the layout vertical breathing room', () => {
+  const state = browser('eval', `(() => {
+    const nav = document.getElementById('gst-navigation');
+    const layout = document.querySelector('.gst-layout');
+    const style = getComputedStyle(layout);
+    return { heading: !!nav.querySelector('.gst-title'), owner: !!nav.querySelector('.gst-owner'),
+      top: parseFloat(style.paddingTop), bottom: parseFloat(style.paddingBottom),
+      links: [...nav.querySelectorAll('.gst-link')].map(link => link.textContent.trim()) };
+  })()`);
+  assert.equal(state.heading, false);
+  assert.equal(state.owner, false);
+  assert.ok(state.top >= 24 && state.bottom >= 24);
+  assert.match(state.links[0], /All repositories/);
+  assert.ok(browser('eval', `!!document.querySelector('#gst-manage')`));
+});
+
+test('places the overview and list repository counts alongside the title', () => {
+  const position = () => browser('eval', `(() => {
+    const heading = document.querySelector('#gst-toolbar h1');
+    const count = document.querySelector('#gst-results-status');
+    const a = heading.getBoundingClientRect(), b = count.getBoundingClientRect();
+    return { text: count.textContent.trim(), sameRow: b.left >= a.right && b.top < a.bottom && b.bottom > a.top,
+      oldCount: [...document.querySelectorAll('#user-profile-frame > div > .tmp-my-3 > .color-fg-muted')]
+        .some(e => /\\d+ repositories/.test(e.textContent)),
+      description: document.querySelector('#user-profile-frame > div > .tmp-my-3 > .color-fg-muted')?.textContent.trim() };
+  })()`);
+  assert.equal(position().text, '40 repositories');
+  assert.equal(position().sameRow, true);
+  openList('ai', 'AI');
+  assert.equal(position().text, '3 repositories');
+  assert.equal(position().sameRow, true);
+  assert.equal(position().oldCount, false);
+  assert.equal(position().description, 'List description');
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('keeps the gap below the filters consistent between overview and categories', () => {
+  browser('set', 'viewport', '1280', '800');
+  const gap = selector => browser('eval', `(() => {
+    const form = document.querySelector('#gst-filters').getBoundingClientRect();
+    const card = document.querySelector('${selector} > .col-12').getBoundingClientRect();
+    return Math.round(card.top - form.bottom);
+  })()`);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  const overviewGap = gap('#user-starred-repos .col-lg-9');
+  openList('ai', 'AI');
+  browser('eval', `document.querySelector('#user-profile-frame > div > .tmp-my-3 > .color-fg-muted').hidden = true`);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  assert.equal(gap('#user-list-repositories'), overviewGap);
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '3 repositories'`);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  assert.equal(gap('#user-list-repositories'), overviewGap);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('shows All on the default type and language buttons', () => {
+  const labels = () => browser('eval', `['type', 'language'].map(id => document.querySelector('#gst-' + id + '-menu summary').textContent.trim())`);
+  assert.deepEqual(labels(), ['Type: All', 'Language: All']);
+  chooseFilter('type', 'fork');
+  chooseFilter('language', 'Go');
+  assert.deepEqual(labels(), ['Type: Forks', 'Language: Go']);
+  chooseFilter('type', '');
+  chooseFilter('language', '');
+  assert.deepEqual(labels(), ['Type: All', 'Language: All']);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('keeps the native list dialog invisible until its position is corrected', () => {
+  const frames = browser('eval', `new Promise(resolve => {
+    const actions = document.querySelector('#user-starred-repos .col-12 .float-right');
+    actions.insertAdjacentHTML('beforeend', '<user-list-menu><select-panel><button aria-haspopup="dialog" aria-controls="fixture-repo-menu">Lists</button><dialog id="fixture-repo-menu">Lists</dialog></select-panel></user-list-menu>');
+    const button = actions.querySelector('user-list-menu button');
+    const dialog = actions.querySelector('dialog');
+    button.addEventListener('click', () => {
+      dialog.show();
+      const right = button.getBoundingClientRect().right;
+      dialog.style.cssText = 'position: fixed; left: ' + right + 'px; right: auto; top: 100px; margin: 0; width: 320px; box-sizing: border-box';
+      dialog.dataset.expectedLeft = Math.max(0, right - 320);
+      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { dialog.style.left = dialog.dataset.expectedLeft + 'px'; }))));
+    });
+    const frames = [];
+    const sample = () => {
+      frames.push({ left: dialog.getBoundingClientRect().left, expected: Number(dialog.dataset.expectedLeft), opacity: getComputedStyle(dialog).opacity, open: dialog.open });
+      if (frames.length === 6) resolve(frames); else requestAnimationFrame(sample);
+    };
+    button.click();
+    requestAnimationFrame(sample);
+  })`);
+  assert.ok(frames.slice(0, 3).every(frame => frame.opacity === '0' && frame.left !== frame.expected));
+  assert.equal(frames.at(-1).left, frames.at(-1).expected);
+  assert.equal(frames.at(-1).opacity, '1');
+  assert.ok(frames.every(frame => frame.open));
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('offers three sorting options with Recently starred as the default', () => {
+  const menu = browser('eval', `(() => ({
+    options: [...document.querySelectorAll('#gst-sort-menu [role="menuitemradio"]')].map(item => item.textContent.trim()),
+    checked: document.querySelector('#gst-sort-menu [aria-checked="true"]')?.textContent.trim(),
+    summary: document.querySelector('#gst-sort-menu summary').textContent.trim(),
+    value: document.querySelector('#gst-sort').value
+  }))()`);
+  assert.deepEqual(menu.options, ['Recently starred', 'Recently active', 'Most stars']);
+  assert.equal(menu.checked, 'Recently starred');
+  assert.equal(menu.summary, 'Sort: Recently starred');
+  assert.equal(menu.value, 'default');
+});
+
+test('uses the GitHub scope total without counting pages when only sorting', () => {
+  browser('eval', `(() => {
+    const original = window.fetch;
+    window.__sortedRequests = [];
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (url.searchParams.get('sort') === 'stars') window.__sortedRequests.push(url.searchParams.get('page') || '1');
+      return original(input, ...args);
+    };
+  })()`);
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `document.querySelector('#user-starred-repos .col-12 h3 a')?.textContent.trim() === 'bulk/repo-1'`);
+  assert.equal(current().status, '40 repositories');
+  assert.deepEqual(browser('eval', 'window.__sortedRequests'), ['1']);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('uses an exact accessible GitHub counter instead of an abbreviated one', () => {
+  browser('open', `${origin}/Fixture?tab=stars&compact_counter=1`);
+  chooseFilter('sort', 'stars');
+  assert.equal(current().status, '1,234 repositories');
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('counts pages when the GitHub scope total is unavailable', () => {
+  browser('open', `${origin}/Fixture?tab=stars&without_counter=1`);
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '40 repositories'`);
+  assert.equal(current().cards.length, 30);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('uses the list total immediately when only sorting a category', () => {
+  openList('ai', 'AI');
+  browser('wait', '--fn', `!!document.querySelector('#gst-navigation').__gstLists`);
+  browser('eval', `(() => {
+    const original = window.fetch;
+    window.__sortedRequests = [];
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (url.searchParams.get('sort') === 'updated') {
+        window.__sortedRequests.push(url.searchParams.get('page') || '1');
+        return new Promise(() => {});
+      }
+      return original(input, ...args);
+    };
+  })()`);
+  chooseFilter('sort', 'updated');
+  assert.equal(current().status, '3 repositories');
+  assert.deepEqual(browser('eval', 'window.__sortedRequests'), ['1']);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('shows a plain total when sorting without filters', () => {
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('40')`);
+  assert.equal(current().status, '40 repositories');
+  openList('ai', 'AI');
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('3')`);
+  assert.equal(current().status, '3 repositories');
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('shows the first GitHub-sorted page without waiting for later pages', () => {
+  chooseFilter('type', 'source');
+  browser('eval', `(() => {
+    const original = window.fetch;
+    window.__sortedRequests = [];
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (url.searchParams.get('sort') === 'stars') {
+        window.__sortedRequests.push(url.searchParams.get('page') || '1');
+        if (url.searchParams.get('page') === '2') return new Promise((resolve, reject) => {
+          window.__releaseCount = () => original(input, ...args).then(resolve, reject);
+        });
+      }
+      return original(input, ...args);
+    };
+  })()`);
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `document.querySelector('#user-starred-repos .col-12 h3 a')?.textContent.trim() === 'bulk/repo-1'`);
+  assert.equal(current().cards.length, 30);
+  assert.equal(current().status, 'Counting repositories…');
+  browser('wait', '--fn', `typeof window.__releaseCount === 'function'`);
+  browser('eval', 'window.__releaseCount()');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '36 matching repositories'`);
+  assert.equal(current().cards.length, 30);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 36`);
+  assert.deepEqual(browser('eval', 'window.__sortedRequests'), ['1', '2']);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('shares the in-flight background request when the user scrolls early', () => {
+  chooseFilter('type', 'source');
+  browser('eval', `(() => {
+    const original = window.fetch;
+    window.__sortedRequests = [];
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (url.searchParams.get('sort') === 'stars') {
+        window.__sortedRequests.push(url.searchParams.get('page') || '1');
+        if (url.searchParams.get('page') === '2') return new Promise((resolve, reject) => {
+          window.__releaseCount = () => original(input, ...args).then(resolve, reject);
+        });
+      }
+      return original(input, ...args);
+    };
+  })()`);
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `typeof window.__releaseCount === 'function' && !!document.querySelector('.gst-stream')`);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `document.querySelector('.gst-stream')?.textContent.includes('Loading')`);
+  assert.deepEqual(browser('eval', 'window.__sortedRequests'), ['1', '2']);
+  browser('eval', 'window.__releaseCount()');
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 36`);
+  assert.equal(current().status, '36 matching repositories');
+  assert.deepEqual(browser('eval', 'window.__sortedRequests'), ['1', '2']);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('retains results and retries a failed background count', () => {
+  chooseFilter('type', 'source');
+  browser('eval', `(() => {
+    const original = window.fetch;
+    let fail = true;
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (fail && url.searchParams.get('sort') === 'stars' && url.searchParams.get('page') === '2') {
+        fail = false; return Promise.resolve(new Response('', { status: 500 }));
+      }
+      return original(input, ...args);
+    };
+  })()`);
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `!!document.querySelector('#gst-count-retry')`);
+  assert.equal(current().cards.length, 30);
+  assert.match(current().status, /Could not count/);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `!!document.querySelector('.gst-stream .gst-retry')`);
+  assert.match(current().status, /Could not count/);
+  browser('click', '#gst-count-retry');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '36 matching repositories'`);
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 36`);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('shows sorted category matches without waiting for the rest of all Stars', () => {
+  openList('ai', 'AI');
+  browser('wait', '--fn', `!!document.querySelector('#gst-navigation').__gstLists`);
+  chooseFilter('sort', 'updated');
+  browser('wait', '--fn', `!!document.querySelector('#user-list-repositories .col-12 h3 a')`);
+  browser('eval', `(() => {
+    const original = window.fetch;
+    window.__sortedRequests = [];
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (url.searchParams.get('sort') === 'updated') {
+        window.__sortedRequests.push(url.searchParams.get('page') || '1');
+        if (url.searchParams.get('page') === '2') return new Promise((resolve, reject) => {
+          window.__releaseCount = () => original(input, ...args).then(resolve, reject);
+        });
+      }
+      return original(input, ...args);
+    };
+  })()`);
+  chooseFilter('type', 'source');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('Counting repositories')`);
+  assert.deepEqual(current().cards, ['alpha/one']);
+  browser('wait', '--fn', `typeof window.__releaseCount === 'function'`);
+  browser('eval', 'window.__releaseCount()');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '1 matching repository'`);
+  assert.deepEqual(browser('eval', 'window.__sortedRequests'), ['1', '2']);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('returns an unfiltered category to its original order without loading all Stars', () => {
+  openList('ai', 'AI');
+  browser('wait', '--fn', `!!document.querySelector('#gst-navigation').__gstLists`);
+  chooseFilter('sort', 'stars');
+  browser('wait', '--fn', `!!document.querySelector('#user-list-repositories .col-12 h3 a')`);
+  browser('eval', `(() => {
+    const original = window.fetch;
+    window.__resetRequests = [];
+    window.fetch = (input, ...args) => { window.__resetRequests.push(new URL(input, location.href).pathname); return original(input, ...args); };
+  })()`);
+  chooseFilter('sort', 'default');
+  browser('wait', '--fn', `document.querySelector('#user-list-repositories .col-12 h2 a')?.textContent.trim() === 'alpha/one'`);
+  assert.equal(browser('eval', `window.__resetRequests.some(path => path === '/Fixture')`), false);
+  assert.equal(browser('eval', `window.__resetRequests[0]`), '/stars/Fixture/lists/ai');
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
 test('uses GitHub SelectMenu dropdowns for the repository filters', () => {
   for (const [id, title] of [['type', 'Filter by type'], ['language', 'Filter by language'], ['sort', 'Sort by']]) {
     const menu = `#gst-${id}-menu`;
@@ -78,7 +384,8 @@ test('uses GitHub SelectMenu dropdowns for the repository filters', () => {
   browser('press', 'Escape');
   assert.equal(browser('eval', `document.querySelector('#gst-sort-menu').open`), false);
   chooseFilter('sort', 'default');
-  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('matching repositories')`);
+  assert.equal(browser('eval', `document.querySelector('#gst-sort-menu summary').textContent.trim()`), 'Sort: Recently starred');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '40 repositories'`);
 });
 
 test('filter menus remain clickable above GitHub’s backdrop on a narrow screen', () => {
@@ -91,23 +398,111 @@ test('filter menus remain clickable above GitHub’s backdrop on a narrow screen
   browser('set', 'viewport', '1280', '800');
 });
 
-test('paginates a search covering all repository pages', () => {
+test('automatically appends filtered results when scrolling to the end', () => {
   browser('fill', '#gst-query', 'bulk');
   browser('click', '#gst-submit');
-  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('35 matching repositories')`);
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('35 stars matching bulk')`);
+  assert.ok(browser('eval', `(() => { const a = document.querySelector('#gst-toolbar h1').getBoundingClientRect(), b = document.querySelector('#gst-results-status').getBoundingClientRect(); return b.left >= a.right && b.top < a.bottom && b.bottom > a.top; })()`));
   assert.equal(current().cards.length, 30);
-  browser('click', '.gst-pages button:last-child');
-  assert.equal(current().cards.length, 5);
-  assert.equal(current().cards[0], 'bulk/repo-31');
-  browser('click', '.gst-pages button:first-child');
+  assert.equal(browser('eval', `!!document.querySelector('.gst-pages')`), false);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 35`);
   assert.equal(current().cards[0], 'bulk/repo-1');
+  assert.equal(current().cards[34], 'bulk/repo-35');
+  assert.equal(current().status, '35 stars matching bulk');
+});
+
+test('retains filtered first-page results when a later page fails and retries', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('eval', `(() => {
+    const original = window.fetch;
+    let fail = true;
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (fail && url.searchParams.get('q') === 'bulk' && url.searchParams.get('page') === '2') {
+        fail = false; return Promise.resolve(new Response('', { status: 500 }));
+      }
+      return original(input, ...args);
+    };
+  })()`);
+  browser('fill', '#gst-query', 'bulk');
+  browser('click', '#gst-submit');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('35 stars matching bulk')`);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `!!document.querySelector('.gst-stream .gst-retry')`);
+  assert.equal(current().cards.length, 30);
+  assert.equal(current().status, '35 stars matching bulk');
+  browser('click', '.gst-stream .gst-retry');
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 35`);
+  assert.equal(current().status, '35 stars matching bulk');
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('ignores a delayed search response after switching categories', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('eval', `(() => {
+    const original = window.fetch;
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (url.searchParams.get('q') === 'bulk') return new Promise((resolve, reject) => {
+        window.__releaseSearch = () => original(input, ...args).then(resolve, reject);
+      });
+      return original(input, ...args);
+    };
+  })()`);
+  browser('fill', '#gst-query', 'bulk');
+  browser('click', '#gst-submit');
+  browser('wait', '--fn', `typeof window.__releaseSearch === 'function'`);
+  openList('infra', 'Infrastructure');
+  browser('eval', 'window.__releaseSearch()');
+  browser('eval', 'new Promise(resolve => setTimeout(resolve, 150))');
+  assert.equal(current().title, 'Infrastructure');
+  assert.deepEqual(current().cards, ['bravo/two', 'echo/five']);
+  assert.equal(current().query, '');
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('automatically loads additional unfiltered overview pages', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 40`);
+  const cards = current().cards;
+  assert.equal(cards.length, 40, 'scrolling should load the next page');
+  assert.deepEqual(cards.slice(0, 4), ['alpha/one', 'bravo/two', 'charlie/three', 'delta/four']);
+  assert.equal(new Set(cards).size, cards.length);
+});
+
+test('retains loaded list cards and retries a failed next page', () => {
+  browser('eval', `(() => {
+    const original = window.fetch;
+    let fail = true;
+    window.__restoreFetch = () => { window.fetch = original; };
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (fail && url.pathname.endsWith('/lists/ai') && url.searchParams.get('page') === '2') {
+        fail = false; return Promise.resolve(new Response('', { status: 500 }));
+      }
+      return original(input, ...args);
+    };
+  })()`);
+  openList('ai', 'AI');
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `!!document.querySelector('.gst-stream .gst-retry')`);
+  assert.deepEqual(current().cards, ['alpha/one', 'delta/four']);
+  browser('click', '.gst-stream .gst-retry');
+  browser('wait', '--fn', `document.querySelectorAll('#user-list-repositories > .col-12').length === 3`);
+  assert.deepEqual(current().cards, ['alpha/one', 'delta/four', 'charlie/three']);
+  browser('eval', 'window.__restoreFetch()');
+  browser('open', `${origin}/Fixture?tab=stars`);
 });
 
 test('packs unequal cards upward without overlapping cards or pagination', () => {
   browser('set', 'viewport', '1440', '900');
   browser('fill', '#gst-query', 'bulk');
   browser('click', '#gst-submit');
-  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('35 matching repositories')`);
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('35 stars matching bulk')`);
   browser('eval', `(() => {
     const cards = document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12');
     cards[0].querySelector('p').textContent = 'Long repository description '.repeat(35);
@@ -119,7 +514,7 @@ test('packs unequal cards upward without overlapping cards or pagination', () =>
   const result = browser('eval', `(() => {
     const root = document.querySelector('#user-starred-repos .col-lg-9');
     const cards = [...root.querySelectorAll(':scope > .col-12')].map(e => e.getBoundingClientRect());
-    const pagination = root.querySelector('.gst-pages').getBoundingClientRect();
+    const pagination = root.querySelector('.gst-stream').getBoundingClientRect();
     let overlaps = false;
     for (let i = 0; i < cards.length; i++) for (let j = i + 1; j < cards.length; j++) {
       const a = cards[i], b = cards[j];
@@ -151,14 +546,34 @@ test('packs unequal cards upward without overlapping cards or pagination', () =>
   browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.deepEqual(browser('eval', `Array.from(document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12'))
     .slice(0, 6).map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '3', '1', '2', '3']);
-  browser('click', '.gst-pages button:last-child');
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 35`);
   browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.deepEqual(browser('eval', `Array.from(document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12'))
-    .map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '3', '1', '2']);
+    .slice(-5).map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '3', '1', '2']);
   browser('set', 'viewport', '1280', '800');
   browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.deepEqual(browser('eval', `Array.from(document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12'))
-    .map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '1', '2', '1']);
+    .slice(-5).map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '1', '2', '1']);
+});
+
+test('restores the initial view and scroll position when returning from a cached page', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('fill', '#gst-query', 'bulk');
+  browser('click', '#gst-submit');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('35 stars matching bulk')`);
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 35`);
+  browser('eval', `(() => {
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    const frame = document.getElementById('user-profile-frame');
+    frame.replaceWith(frame.cloneNode(true));
+    document.dispatchEvent(new Event('turbo:load'));
+  })()`);
+  assert.equal(current().query, '');
+  assert.equal(current().cards[0], 'alpha/one');
+  assert.equal(browser('eval', 'scrollY'), 0);
+  assert.ok(browser('eval', `!!document.querySelector('.gst-stream')`));
 });
 
 test('filters all pages of the selected list and retains GitHub result ordering', () => {
@@ -200,8 +615,9 @@ test('clearly reports empty results and failed page loads', () => {
   assert.match(browser('eval', `document.querySelector('#user-list-repositories').textContent`), /No repositories match/);
   browser('fill', '#gst-query', 'simulate-failure');
   browser('click', '#gst-submit');
-  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('Could not load all pages')`);
-  assert.match(current().status, /Could not load all pages/);
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('Could not load repositories')`);
+  assert.match(current().status, /Could not load repositories/);
+  assert.equal(browser('eval', `document.querySelector('#gst-filter-retry')?.textContent`), 'Retry');
 });
 
 test('opens the original create, edit and delete-confirmation dialogs without submitting them', () => {
@@ -248,6 +664,12 @@ test('stores a manual list order in the userscript manager and restores it after
   browser('reload');
   browser('wait', '--fn', `document.querySelectorAll('#gst-navigation .gst-link').length === 3`);
   assert.deepEqual(names(), ['Infrastructure', 'AI']);
+});
+
+test('maps a GitHub recently starred URL to the default option', () => {
+  browser('open', `${origin}/Fixture?tab=stars&sort=created`);
+  assert.equal(current().sort, 'default');
+  assert.equal(browser('eval', `document.querySelector('#gst-sort-menu [aria-checked="true"]').textContent.trim()`), 'Recently starred');
 });
 
 test('reflects filters already present in a GitHub Stars URL', () => {

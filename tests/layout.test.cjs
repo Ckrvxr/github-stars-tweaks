@@ -34,7 +34,7 @@ const html = `<!doctype html><html><head><style>
   ${style}
   </style></head><body class="gst-active"><main><div class="gst-container">
   <div class="Layout gst-layout"><div class="Layout-sidebar"><nav id="gst-navigation">
-  <h2 class="gst-title">Stars</h2><div class="gst-links"><a class="gst-link">All repositories</a>
+  <div class="gst-links"><a class="gst-link">All repositories</a>
   <a class="gst-link" aria-current="page">A category</a></div></nav></div>
   <div class="Layout-main"><div id="user-profile-frame"><h1>Repositories</h1>
   <div id="user-list-repositories">${cards}</div>
