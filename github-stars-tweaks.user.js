@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         GitHub Stars Tweaks
 // @namespace    https://github.com/
-// @version      2.3.11
-// @description  Browse GitHub star lists side by side with compact, responsive repository cards.
+// @version      1.0.0
+// @description  GitHub stars page tweaks
+// @author       Ckrvxr
+// @license      Apache-2.0
+// @icon         https://github.githubassets.com/favicons/favicon.svg
+// @homepageURL  https://github.com/Ckrvxr/github-stars-tweaks
 // @match        https://github.com/*
-// @grant        GM_getValue
-// @grant        GM_setValue
 // @run-at       document-start
 // ==/UserScript==
 
