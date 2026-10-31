@@ -526,12 +526,12 @@ test('packs unequal cards upward without overlapping cards or pagination', () =>
       paginationBottom: pagination.bottom };
   })()`);
   assert.ok(result.first.height > result.second.height * 2, 'fixture needs unequal card heights');
-  assert.ok(Math.abs(result.first.top - result.second.top) < 1 && Math.abs(result.second.top - result.third.top) < 1,
-    'first three repositories must retain their left-to-right order');
-  assert.ok(Math.abs(result.fourth.left - result.first.left) < 1 && Math.abs(result.fifth.left - result.second.left) < 1 &&
-    Math.abs(result.sixth.left - result.third.left) < 1, 'each successive group must remain in left-to-right order');
-  assert.ok(result.fifth.top < result.first.bottom, 'shorter columns should be filled independently');
-  assert.ok(result.fifth.top - result.second.bottom <= 16 && result.sixth.top - result.third.bottom <= 16,
+  assert.ok(Math.abs(result.first.top - result.second.top) < 1, 'first two repositories must retain their left-to-right order');
+  assert.ok(Math.abs(result.third.left - result.first.left) < 1 && Math.abs(result.fourth.left - result.second.left) < 1 &&
+    Math.abs(result.fifth.left - result.first.left) < 1 && Math.abs(result.sixth.left - result.second.left) < 1,
+    'each successive pair must remain in left-to-right order');
+  assert.ok(result.fourth.top < result.first.bottom, 'shorter columns should be filled independently');
+  assert.ok(result.fourth.top - result.second.bottom <= 16 && result.sixth.top - result.fourth.bottom <= 16,
     'vertical gaps should remain compact');
   assert.equal(result.overlaps, false);
   assert.ok(result.paginationTop >= result.bottom, 'pagination must follow every card');
@@ -545,12 +545,12 @@ test('packs unequal cards upward without overlapping cards or pagination', () =>
   browser('set', 'viewport', '1440', '900');
   browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.deepEqual(browser('eval', `Array.from(document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12'))
-    .slice(0, 6).map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '3', '1', '2', '3']);
+    .slice(0, 6).map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '1', '2', '1', '2']);
   browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
   browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 35`);
   browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.deepEqual(browser('eval', `Array.from(document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12'))
-    .slice(-5).map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '3', '1', '2']);
+    .slice(-5).map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '1', '2', '1']);
   browser('set', 'viewport', '1280', '800');
   browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.deepEqual(browser('eval', `Array.from(document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12'))

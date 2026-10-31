@@ -95,12 +95,17 @@ test('a sponsored repository name remains readable on a narrow phone', () => {
   assert.ok(result.width >= 120, `repository name is squeezed into ${result.width}px`);
 });
 
-test('repository grid adjusts from two columns to three and then one', () => {
+test('repository grid stays within two columns and centers the constrained layout', () => {
   const columns = () => browser('eval', `getComputedStyle(document.getElementById('user-list-repositories')).gridTemplateColumns.split(' ').length`);
   browser('set', 'viewport', '1200', '800');
   assert.equal(columns(), 2);
   browser('set', 'viewport', '1440', '900');
-  assert.equal(columns(), 3);
+  assert.equal(columns(), 2);
+  browser('set', 'viewport', '1920', '1080');
+  assert.equal(columns(), 2);
+  const layout = browser('eval', `(() => { const r = document.querySelector('.gst-container').getBoundingClientRect(); return {width: r.width, left: r.left, right: innerWidth-r.right}; })()`);
+  assert.ok(layout.width <= 1200, `layout should not exceed 1200px: ${layout.width}`);
+  assert.ok(Math.abs(layout.left - layout.right) < 1, 'layout should be centered');
   browser('set', 'viewport', '390', '844');
   assert.equal(columns(), 1);
   const size = browser('eval', '({ width: innerWidth, page: document.documentElement.scrollWidth })');

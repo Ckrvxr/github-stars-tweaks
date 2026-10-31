@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub Stars Tweaks
 // @namespace    https://github.com/
-// @version      2.3.7
+// @version      2.3.8
 // @description  Browse GitHub star lists side by side with compact, responsive repository cards.
 // @match        https://github.com/*
 // @grant        GM_getValue
@@ -115,7 +115,7 @@
   }
 
   const STYLE = `
-    body.gst-active main .gst-container { max-width: 1600px !important; }
+    body.gst-active main .gst-container { max-width: 1200px !important; margin-inline: auto !important; }
     body.gst-active main .gst-layout {
       display: grid !important;
       grid-template-columns: 224px minmax(0, 1fr) !important;
@@ -178,7 +178,7 @@
       display: grid !important;
       --gst-card-min-width: 350px;
       --gst-card-gap: 12px;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--gst-card-min-width)), 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, max(var(--gst-card-min-width), calc((100% - var(--gst-card-gap)) / 2))), 1fr));
       gap: var(--gst-card-gap);
       border-top: 0 !important;
       margin-top: 16px !important;
@@ -247,7 +247,7 @@
     #gst-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 14px; }
     #gst-toolbar h1 { margin: 0; font-size: 24px !important; line-height: 1.25; }
     #gst-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    #gst-query { flex: 1 1 240px; min-width: 140px; }
+    #gst-query { flex: 1 1 140px; min-width: 140px; }
     #gst-filters .gst-filter-menu { position: relative; }
     #gst-filters .gst-filter-menu .SelectMenu-item { width: 100%; text-align: left; }
     #gst-results-status { margin: 0; color: var(--fgColor-muted, var(--color-fg-muted, #656d76)); font-size: 14px; }
@@ -595,7 +595,7 @@
       const minWidth = parseFloat(style.getPropertyValue('--gst-card-min-width'));
       const gap = parseFloat(style.getPropertyValue('--gst-card-gap'));
       const cards = [...root.children].filter(child => child.classList.contains('col-12'));
-      const columns = Math.max(1, Math.min(cards.length, Math.floor((width + gap) / (minWidth + gap))));
+      const columns = Math.max(1, Math.min(2, cards.length, Math.floor((width + gap) / (minWidth + gap))));
       cards.forEach((card, index) => card.style.setProperty('--gst-grid-column', String(index % columns + 1)));
     };
     let rootWidth = 0;
