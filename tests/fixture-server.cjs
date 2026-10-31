@@ -72,8 +72,34 @@ const fixtureClient = `
     const response = await fetch(link.href);
     const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
     const frame = document.getElementById('user-profile-frame');
-    frame.replaceChildren(...Array.from(doc.getElementById('user-profile-frame').childNodes));
+    const newFrame = doc.getElementById('user-profile-frame');
     history.pushState({}, '', link.href);
+    let resumeRender;
+    const renderInterception = new Promise(resolve => { resumeRender = resolve; });
+    const detail = {
+      newFrame,
+      resume: resumeRender,
+      render: (currentElement, nextElement) => {
+        currentElement.replaceChildren(...Array.from(nextElement.childNodes));
+      },
+    };
+    const beforeRender = new CustomEvent('turbo:before-frame-render', { bubbles: true, cancelable: true, detail });
+    frame.dispatchEvent(beforeRender);
+    if (beforeRender.defaultPrevented) {
+      await Promise.resolve();
+      frame.className = newFrame.className;
+      await Promise.resolve();
+      detail.resume();
+      document.body.setAttribute('class', doc.body.className);
+      await renderInterception;
+    } else {
+      frame.className = newFrame.className;
+      document.body.setAttribute('class', doc.body.className);
+    }
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    detail.render(frame, newFrame);
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    frame.dispatchEvent(new Event('turbo:frame-render', { bubbles: true }));
     frame.dispatchEvent(new Event('turbo:frame-load', { bubbles: true }));
   });
   document.addEventListener('click', event => {

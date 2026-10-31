@@ -595,6 +595,35 @@ test('keeps the enhanced layout when GitHub rewrites body classes during Turbo l
   browser('open', `${origin}/Fixture?tab=stars`);
 });
 
+test('switches between overview and lists without flashing the unenhanced page', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('eval', `(() => {
+    window.__flickerFrames = [];
+    const sample = () => {
+      const frame = document.getElementById('user-profile-frame');
+      const bodyActive = document.body.classList.contains('gst-active');
+      const frameStyled = frame.classList.contains('gst-overview') || frame.classList.contains('gst-list');
+      const hasToolbar = !!document.getElementById('gst-toolbar');
+      const lists = document.getElementById('profile-lists-container');
+      const listsVisible = lists ? getComputedStyle(lists).display !== 'none' : false;
+      const breadcrumb = frame.querySelector(':scope > div:not(#gst-toolbar) > a.breadcrumb');
+      const breadcrumbVisible = breadcrumb ? getComputedStyle(breadcrumb).display !== 'none' : false;
+      if (!bodyActive || !frameStyled || !hasToolbar || listsVisible || breadcrumbVisible) {
+        window.__flickerFrames.push({ bodyActive, frameStyled, hasToolbar, listsVisible, breadcrumbVisible });
+      }
+      if (window.__samplingFlicker) requestAnimationFrame(sample);
+    };
+    window.__samplingFlicker = true;
+    requestAnimationFrame(sample);
+  })()`);
+  openList('ai', 'AI');
+  openList('infra', 'Infrastructure');
+  browser('click', '#gst-navigation a[href="/Fixture?tab=stars"]');
+  browser('wait', '--fn', `location.search === '?tab=stars' && document.querySelector('#gst-toolbar h1')?.textContent.trim() === 'All repositories'`);
+  const flickers = browser('eval', `(() => { window.__samplingFlicker = false; return window.__flickerFrames; })()`);
+  assert.deepEqual(flickers, []);
+});
+
 test('restores the enhanced view after Turbo prepares a cache snapshot', () => {
   browser('open', `${origin}/Fixture?tab=stars`);
   browser('eval', `document.dispatchEvent(new Event('turbo:before-cache'))`);

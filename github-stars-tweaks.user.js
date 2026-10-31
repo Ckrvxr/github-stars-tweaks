@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub Stars Tweaks
 // @namespace    https://github.com/
-// @version      1.1.0
+// @version      1.1.1
 // @description  GitHub stars page tweaks
 // @author       Ckrvxr
 // @license      Apache-2.0
@@ -646,6 +646,15 @@
 
   let activeStream = null;
   let pageSnapshot = null;
+  let classGuard = null;
+
+  function syncActiveClasses(frame) {
+    if (!document.body || !frame || !document.getElementById('gst-navigation')) return;
+    if (!document.body.classList.contains('gst-active')) document.body.classList.add('gst-active');
+    const isList = !!frame.querySelector('#user-list-repositories');
+    if (frame.classList.contains('gst-list') !== isList) frame.classList.toggle('gst-list', isList);
+    if (frame.classList.contains('gst-overview') !== !isList) frame.classList.toggle('gst-overview', !isList);
+  }
 
   function stopStream() {
     if (!activeStream) return;
@@ -1022,6 +1031,7 @@
     const route = getRoute(location.href);
     const { frame, layout, sidebar } = getProfileElements(document);
     if (!route || !frame || !layout || !sidebar) {
+      classGuard?.disconnect();
       if (!route || document.readyState !== 'loading') document.documentElement.classList.remove('gst-pending');
       document.body?.classList.remove('gst-active');
       document.getElementById('gst-navigation')?.remove();
@@ -1033,6 +1043,7 @@
     }
 
     addStyle();
+    classGuard?.disconnect();
     document.body.classList.add('gst-active');
     layout.classList.add('gst-layout');
     layout.parentElement.classList.add('gst-container');
@@ -1069,6 +1080,11 @@
       showLists(nav, route, extractLists(document, route.owner));
     } else if (!nav.__gstLists) loadLists(nav, route);
     else updateSelection(nav, route);
+    if (!classGuard && typeof MutationObserver === 'function') {
+      classGuard = new MutationObserver(() => syncActiveClasses(document.getElementById('user-profile-frame')));
+    }
+    classGuard?.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    classGuard?.observe(frame, { attributes: true, attributeFilter: ['class'] });
     document.documentElement.classList.remove('gst-pending');
   }
 
@@ -1132,6 +1148,16 @@
     const route = getRoute(location.href);
     const nav = document.getElementById('gst-navigation');
     if (route && nav) updateSelection(nav, route);
+  });
+  document.addEventListener('turbo:before-frame-render', event => {
+    if (event.target.id !== 'user-profile-frame' && event.target.id !== 'user-starred-repos') return;
+    if (typeof event.detail?.render === 'function') {
+      const render = event.detail.render;
+      event.detail.render = (currentElement, newElement) => {
+        render(currentElement, newElement);
+        activate();
+      };
+    }
   });
   document.addEventListener('turbo:frame-load', event => {
     if (event.target.id === 'user-profile-frame' || event.target.id === 'user-starred-repos') activate();
