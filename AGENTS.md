@@ -1,12 +1,12 @@
-## 项目要素
+## Project Scope
 
-- 只开发 stars 这个功能的优化、增强
-- 样式尽量使用 github 原生样式，和 github 原生界面协调
+- Focus solely on optimizing and enhancing the Stars feature.
+- Use GitHub native styles as much as possible to ensure harmony with GitHub's native UI.
 
-## 一、项目规范与验收标准
+## 1. Project Standards and Acceptance Criteria
 
-- 前端、排版、设计、PPT、PDF 等项目，都要不断通过渲染和查看来验收，不断调整排版和句式，直到排版优美，各种元素和谐
+- For frontend, typography, design, PPT, PDF, and related work, continuously inspect and verify via rendering; iteratively refine layout, typography, and phrasing until the presentation is elegant and all elements are harmonious.
 
-## 工具与使用建议
+## Tools and Usage Recommendations
 
-- 使用 agent browser 来进行调试与测试
+- Use agent-browser for debugging and testing.

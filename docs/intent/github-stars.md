@@ -1,14 +1,14 @@
-# GitHub Stars 交互改进意图
+# GitHub Stars Interaction Improvement Intent
 
-- **目标**：让 GitHub Stars 更适合连续浏览不同分类。
-- **使用场景**：像逛书架一样，逐个查看现有收藏列表。
-- **当前障碍**：首页列表占据大量空间；进入分类后无法直接切换其他分类；仓库卡片太大。
-- **期望效果**：分类导航与仓库同屏，切换分类不必返回上一页；仓库最多两列，窄屏自动变为一列，页面内容限制宽度并居中。
-- **仓库卡片**：按从左到右的顺序分配到瀑布流各列，卡片按内容高度独立向上填充；简介完整显示，仅隐藏卡片上的 Sponsor 按钮，保留 Star 和列表操作。
-- **统一标题与筛选**：去掉列表页面重复的返回 Stars 链接；全部仓库和各分类共用标题、关键词搜索、仓库类型、语言与仓库排序，去掉重复入口。
-- **连续浏览**：全部仓库、各分类和筛选结果在接近底部时自动加载下一批；失败时保留已显示的内容，并提供重试。从仓库页面返回时从头开始。
-- **筛选范围**：只筛选当前选择的全部仓库或某个分类，覆盖所有分页；优先显示 GitHub 返回的首批结果，其余随滚动加载。分类默认顺序结合筛选时，为保持原顺序可先读取全部匹配分页。仅排序时直接显示 GitHub 当前范围的原生总数，不为计数预读分页；筛选时优先显示 GitHub 提供的完整数量，未提供时后台统计全部匹配项并缓存结果供滚动使用，统计期间显示状态、失败时可重试；切换分类时重置筛选条件与排序。
-- **列表管理**：在左侧 Lists 标题旁放统一管理入口，支持新建、编辑、删除与手动排序；删除前需要确认。
-- **排序保存**：手动顺序通过 `GM_getValue` / `GM_setValue` 保存在当前脚本管理器中，不使用 Gist、访问令牌或额外同步服务；不同管理器之间不保证数据互通。
-- **约束**：使用油猴脚本，沿用 GitHub 现有的 Star 和列表；不自动修改 Star 或列表，列表变更只由用户主动操作；分析与验证过程中不修改账号数据。
-- **非重点**：批量整理等收藏管理功能不是当前重点。
+- **Goal**: Make GitHub Stars better suited for continuously browsing across different lists.
+- **Use Case**: Browse starred repositories like browsing a bookshelf, checking existing lists one by one.
+- **Current Obstacles**: Lists take up substantial space on the overview; cannot switch between lists directly once inside a list; repository cards are too large.
+- **Desired Outcome**: Keep list navigation and repositories on the same screen so switching lists doesn't require going back; at most two columns of repositories, automatically collapsing to a single column on narrow screens, with centered and max-width constrained content.
+- **Repository Cards**: Distribute left-to-right into masonry columns where cards fill upward independently based on content height; full descriptions displayed; only the card's Sponsor button is hidden, preserving Star and list actions.
+- **Unified Header and Filters**: Remove redundant "Back to Stars" links on list pages; share a unified header, keyword search, repository type, language, and sorting controls across all repositories and individual lists, eliminating duplicated controls.
+- **Continuous Browsing**: Automatically load the next batch of items when scrolling near the bottom across all repositories, categories, and filtered results; keep loaded content on failure and provide retry capability; restart from the beginning when returning from a repository page.
+- **Filter Scope**: Filter only within the currently selected scope (all repositories or a specific list), spanning all pagination pages; prioritize displaying initial results returned by GitHub and load the rest on scroll. When combining a category's default order with filters, prefetch all matching pages if needed to preserve the original order. When sorting without filters, directly display GitHub's native total count without prefetching for counting; when filtering, prefer the full count provided by GitHub, or count matching items in the background if not provided and cache results for scrolling, showing counting status and allowing retry on failure; reset filters and sort when switching lists.
+- **List Management**: Provide a unified management menu next to the "Lists" header in the sidebar, supporting new list creation, editing, deleting, and manual reordering; require confirmation before deletion.
+- **Order Persistence**: Persist manual ordering via `GM_getValue` / `GM_setValue` in the active userscript manager without external services (Gist, tokens, etc.); data is not guaranteed to sync between different script managers.
+- **Constraints**: Implemented as a userscript; reuse GitHub's native Stars and lists; never automatically modify stars or lists (modifications only via explicit user action in native dialogs); never mutate account data during analysis and verification.
+- **Non-goals**: Batch organization and bulk bookmark management features are out of scope for now.
