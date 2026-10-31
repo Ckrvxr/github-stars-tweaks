@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         GitHub Stars Tweaks
 // @namespace    https://github.com/
-// @version      2.3.8
+// @version      2.3.11
 // @description  Browse GitHub star lists side by side with compact, responsive repository cards.
 // @match        https://github.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @run-at       document-idle
+// @run-at       document-start
 // ==/UserScript==
 
 (() => {
@@ -115,6 +115,7 @@
   }
 
   const STYLE = `
+    html.gst-pending main .Layout { visibility: hidden !important; }
     body.gst-active main .gst-container { max-width: 1200px !important; margin-inline: auto !important; }
     body.gst-active main .gst-layout {
       display: grid !important;
@@ -291,7 +292,7 @@
     const style = document.createElement('style');
     style.id = 'gst-style';
     style.textContent = STYLE;
-    document.head.append(style);
+    (document.head || document.documentElement).append(style);
   }
 
   function makeLink(label, href, count) {
@@ -1005,7 +1006,8 @@
     const route = getRoute(location.href);
     const { frame, layout, sidebar } = getProfileElements(document);
     if (!route || !frame || !layout || !sidebar) {
-      document.body.classList.remove('gst-active');
+      if (!route || document.readyState !== 'loading') document.documentElement.classList.remove('gst-pending');
+      document.body?.classList.remove('gst-active');
       document.getElementById('gst-navigation')?.remove();
       activeSearch?.abort();
       stopStream();
@@ -1051,6 +1053,7 @@
       showLists(nav, route, extractLists(document, route.owner));
     } else if (!nav.__gstLists) loadLists(nav, route);
     else updateSelection(nav, route);
+    document.documentElement.classList.remove('gst-pending');
   }
 
   document.addEventListener('click', event => {
@@ -1095,13 +1098,20 @@
     frame.replaceChildren(...children.map(node => node.cloneNode(true)));
     frame.dataset.gstReturnToTop = 'true';
     pageSnapshot = null;
+    return true;
   }
 
-  document.addEventListener('turbo:before-cache', resetCachedPage);
+  document.addEventListener('turbo:before-cache', () => {
+    if (resetCachedPage()) queueMicrotask(activate);
+  });
+  document.addEventListener('turbo:render', activate);
   window.addEventListener('pageshow', event => {
     if (event.persisted) { resetCachedPage(); activate(); }
   });
-  document.addEventListener('turbo:load', activate);
+  document.addEventListener('turbo:load', () => {
+    activate();
+    queueMicrotask(activate);
+  });
   window.addEventListener('resize', () => {
     const route = getRoute(location.href);
     const nav = document.getElementById('gst-navigation');
@@ -1110,5 +1120,21 @@
   document.addEventListener('turbo:frame-load', event => {
     if (event.target.id === 'user-profile-frame' || event.target.id === 'user-starred-repos') activate();
   });
-  activate();
+  const start = () => {
+    if (getRoute(location.href)) {
+      document.documentElement.classList.add('gst-pending');
+      addStyle();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', activate, { once: true });
+    else activate();
+  };
+  if (document.documentElement) start();
+  else {
+    const observer = new MutationObserver(() => {
+      if (!document.documentElement) return;
+      observer.disconnect();
+      start();
+    });
+    observer.observe(document, { childList: true });
+  }
 })();

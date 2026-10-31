@@ -94,7 +94,9 @@ const server = http.createServer((req, res) => {
   }
   const content = slug ? listPage(url, slug) : overview(url);
   const source = script.replace("const ORIGIN = 'https://github.com';", `const ORIGIN = '${origin}';`).replace(/<\/script/gi, '<\\/script');
-  const page = `<!doctype html><html><head><meta name="user-login" content="Fixture"><style>
+  const early = url.searchParams.has('early');
+  const earlyScript = early ? `<script>${source}</script><script>window.__earlyState = { body: !!document.body, pending: document.documentElement.classList.contains('gst-pending'), style: !!document.getElementById('gst-style') };</script>` : '';
+  const page = `<!doctype html><html><head><meta name="user-login" content="Fixture">${earlyScript}<style>
     body { font: 14px sans-serif; margin: 0 } .Layout { display: flex } .Layout-sidebar { width: 230px }
     .Layout-main { flex: 1 } .float-right { display: flex } .gst-container { padding: 32px }
     .btn { padding: 6px 10px } .pagination a { display: inline-block; padding: 6px }
@@ -102,9 +104,9 @@ const server = http.createServer((req, res) => {
     .details-overlay[open] > summary::before { content: ''; position: fixed; inset: 0; z-index: 80 }
     .SelectMenu { position: absolute; z-index: 99; background: white }
     @media (max-width: 544px) { .SelectMenu { position: fixed; top: 30%; left: 16px; right: 16px } }
-    </style></head><body>${url.searchParams.has('without_counter') ? '' : `<a data-tab-item="stars" href="/Fixture?tab=stars"><span data-component="counter">${url.searchParams.has('compact_counter') ? '<span aria-hidden="true">1.2k</span><span>(1,234)</span>' : '40'}</span></a>`}<main><div><div class="Layout"><div class="Layout-sidebar"></div><div class="Layout-main">
-    <turbo-frame id="user-profile-frame">${content}</turbo-frame></div></div></div></main>
-    <script>${fixtureClient}</script><script>${source}</script></body></html>`;
+    </style></head><body>${url.searchParams.has('without_counter') ? '' : `<a data-tab-item="stars" href="/Fixture?tab=stars"><span data-component="counter">${url.searchParams.has('compact_counter') ? '<span aria-hidden="true">1.2k</span><span>(1,234)</span>' : '40'}</span></a>`}<main><div><div class="Layout">${early ? '<script>window.__initialLayoutVisibility = getComputedStyle(document.querySelector(".Layout")).visibility;</script>' : ''}<div class="Layout-sidebar"></div><div class="Layout-main">
+    ${url.searchParams.has('missing_frame') ? '<p>Profile unavailable</p>' : `<turbo-frame id="user-profile-frame">${content}</turbo-frame>`}</div></div></div></main>
+    <script>${fixtureClient}</script>${early ? '' : `<script>${source}</script>`}</body></html>`;
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(page);
 });

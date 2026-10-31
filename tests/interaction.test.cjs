@@ -51,6 +51,28 @@ test.after(() => {
   try { browser('close'); } finally { server?.kill(); }
 });
 
+test('starts before the body exists and reveals the enhanced page after initialization', () => {
+  browser('open', `${origin}/Fixture?tab=stars&early=1`);
+  assert.deepEqual(browser('eval', 'window.__earlyState'), { body: false, pending: true, style: true });
+  assert.equal(browser('eval', 'window.__initialLayoutVisibility'), 'hidden');
+  browser('wait', '--fn', `!!document.querySelector('#gst-toolbar')`);
+  assert.equal(browser('eval', `getComputedStyle(document.querySelector('.Layout')).visibility`), 'visible');
+  assert.equal(browser('eval', `document.documentElement.classList.contains('gst-pending')`), false);
+  assert.equal(browser('eval', `document.body.classList.contains('gst-active')`), true);
+  browser('open', `${origin}/unrelated?early=1`);
+  assert.deepEqual(browser('eval', 'window.__earlyState'), { body: false, pending: false, style: false });
+  assert.equal(browser('eval', `!!document.querySelector('#gst-toolbar')`), false);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('reveals the original page if the expected Stars layout is absent', () => {
+  browser('open', `${origin}/Fixture?tab=stars&early=1&missing_frame=1`);
+  assert.equal(browser('eval', `document.documentElement.classList.contains('gst-pending')`), false);
+  assert.equal(browser('eval', `getComputedStyle(document.querySelector('.Layout')).visibility`), 'visible');
+  assert.equal(browser('eval', `document.querySelector('main p')?.textContent`), 'Profile unavailable');
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
 test('provides one shared title and filter toolbar and hides duplicated overview controls', () => {
   const state = current();
   assert.equal(state.toolbar, true);
@@ -555,6 +577,44 @@ test('packs unequal cards upward without overlapping cards or pagination', () =>
   browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.deepEqual(browser('eval', `Array.from(document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12'))
     .slice(-5).map(e => e.style.getPropertyValue('--gst-grid-column'))`), ['1', '2', '1', '2', '1']);
+});
+
+test('keeps the enhanced layout when GitHub rewrites body classes during Turbo load', () => {
+  browser('open', `${origin}/Fixture?tab=stars&early=1`);
+  browser('eval', `(() => {
+    document.addEventListener('turbo:load', () => document.body.classList.remove('gst-active'), { once: true });
+    document.dispatchEvent(new Event('turbo:load'));
+  })()`);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(resolve))');
+  assert.ok(browser('eval', `document.body.classList.contains('gst-active')`));
+  assert.ok(browser('eval', `!!document.querySelector('#gst-toolbar')`));
+  assert.equal(browser('eval', `getComputedStyle(document.querySelector('#profile-lists-container')).display`), 'none');
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('restores the enhanced view after Turbo prepares a cache snapshot', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('eval', `document.dispatchEvent(new Event('turbo:before-cache'))`);
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(resolve))');
+  assert.ok(browser('eval', `!!document.querySelector('#gst-toolbar')`), 'toolbar must not remain missing on the live page');
+  assert.equal(browser('eval', `getComputedStyle(document.querySelector('#profile-lists-container')).display`), 'none');
+  assert.ok(browser('eval', `document.body.classList.contains('gst-active')`));
+});
+
+test('reinitializes the enhanced view as soon as Turbo renders a replacement body', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('eval', `(() => {
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    const replacement = document.body.cloneNode(true);
+    replacement.classList.remove('gst-active');
+    document.getElementById('gst-style').remove();
+    document.body.replaceWith(replacement);
+    document.dispatchEvent(new Event('turbo:render'));
+  })()`);
+  assert.ok(browser('eval', `!!document.querySelector('#gst-toolbar')`));
+  assert.ok(browser('eval', `document.body.classList.contains('gst-active')`));
+  assert.ok(browser('eval', `!!document.getElementById('gst-style')`));
+  assert.equal(browser('eval', `getComputedStyle(document.querySelector('#profile-lists-container')).display`), 'none');
 });
 
 test('restores the initial view and scroll position when returning from a cached page', () => {

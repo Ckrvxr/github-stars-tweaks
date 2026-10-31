@@ -1,6 +1,39 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
 const { getRoute, extractLists, revealSelection, getProfileElements } = require('../github-stars-tweaks.user.js');
+
+test('starts safely before the document element is available', () => {
+  const listeners = {};
+  let notify;
+  let observed = false;
+  const doc = {
+    documentElement: null, head: null, readyState: 'loading',
+    addEventListener: (type, fn) => { listeners[type] = fn; },
+    getElementById: () => null,
+    createElement: () => ({}),
+  };
+  class Observer {
+    constructor(callback) { notify = callback; }
+    observe(target) { observed = target === doc; }
+    disconnect() {}
+  }
+  const source = readFileSync(join(__dirname, '..', 'github-stars-tweaks.user.js'), 'utf8');
+  assert.doesNotThrow(() => vm.runInNewContext(source, {
+    document: doc, window: { addEventListener() {} }, location: { href: 'https://github.com/Fixture?tab=stars' },
+    MutationObserver: Observer, URL,
+  }));
+  assert.equal(observed, true);
+  const classes = [];
+  let style;
+  doc.documentElement = { classList: { add: value => classes.push(value) }, append: element => { style = element; } };
+  notify();
+  assert.deepEqual(classes, ['gst-pending']);
+  assert.equal(style.id, 'gst-style');
+  assert.equal(typeof listeners.DOMContentLoaded, 'function');
+});
 
 test('recognizes the Stars overview and keeps the owner', () => {
   assert.deepEqual(getRoute('https://github.com/Ckrvxr?tab=stars&sort=created'), {
