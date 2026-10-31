@@ -166,16 +166,16 @@
     body.gst-active #user-profile-frame.gst-overview > div:not(#gst-toolbar) > .d-flex.flex-column,
     body.gst-active #user-profile-frame.gst-list > div:not(#gst-toolbar) > a:first-child,
     body.gst-active #user-profile-frame.gst-list button[data-show-dialog-id^="edit-list-dialog-"],
-    body.gst-active #user-starred-repos .col-lg-9 > .position-relative,
-    body.gst-active #user-starred-repos .col-lg-9 > .TableObject { display: none !important; }
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .position-relative,
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .TableObject { display: none !important; }
     body.gst-active #user-profile-frame.gst-list > div:not(#gst-toolbar) { display: flow-root; }
     body.gst-active #user-profile-frame.gst-list > div:not(#gst-toolbar) > .tmp-my-3 { margin-block: 0 !important; }
     body.gst-active #user-profile-frame.gst-list > div:not(#gst-toolbar) > .tmp-my-3 > div:first-child { margin-bottom: 0 !important; }
     body.gst-active #user-starred-repos > .d-lg-flex { display: block !important; margin-top: 20px !important; }
-    body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-9 { width: 100% !important; max-width: none !important; }
+    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) { width: 100% !important; max-width: none !important; }
     body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-3 { display: none !important; }
     body.gst-active #user-list-repositories,
-    body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-9 {
+    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) {
       display: grid !important;
       --gst-card-min-width: 350px;
       --gst-card-gap: 12px;
@@ -185,25 +185,25 @@
       margin-top: 16px !important;
     }
     body.gst-active #user-list-repositories { margin-top: 6px !important; }
-    body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-9 > :not(.col-12),
+    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) > :not(.col-12),
     body.gst-active #user-list-repositories > .paginate-container { grid-column: 1 / -1; }
     body.gst-active #user-list-repositories.gst-masonry,
-    body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-9.gst-masonry {
+    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12).gst-masonry {
       grid-auto-rows: 4px;
       grid-auto-flow: row dense;
       row-gap: 0;
     }
     body.gst-active #user-list-repositories.gst-masonry > *,
-    body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-9.gst-masonry > * {
+    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12).gst-masonry > * {
       align-self: start;
       grid-row-end: span var(--gst-grid-span, 1);
     }
     body.gst-active #user-list-repositories.gst-masonry > .col-12,
-    body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-9.gst-masonry > .col-12 {
+    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12).gst-masonry > .col-12 {
       grid-column: var(--gst-grid-column, auto);
     }
     body.gst-active #user-list-repositories > .col-12,
-    body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-9 > .col-12 {
+    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) > .col-12 {
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas: 'name actions' 'description description' 'meta meta';
@@ -219,18 +219,18 @@
       background: var(--bgColor-default, var(--color-canvas-default, #fff));
     }
     body.gst-active #user-list-repositories > .col-12 > .d-inline-block,
-    body.gst-active #user-starred-repos .col-lg-9 > .col-12 > .d-inline-block { grid-area: name; min-width: 0; margin: 0 !important; }
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .d-inline-block { grid-area: name; min-width: 0; margin: 0 !important; }
     body.gst-active #user-list-repositories > .col-12 h2,
     body.gst-active #user-list-repositories > .col-12 h3,
-    body.gst-active #user-starred-repos .col-lg-9 > .col-12 h3 { margin: 0; font-size: 14px !important; line-height: 1.45; overflow-wrap: anywhere; }
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 h3 { margin: 0; font-size: 14px !important; line-height: 1.45; overflow-wrap: anywhere; }
     body.gst-active #user-list-repositories > .col-12 > .float-right,
-    body.gst-active #user-starred-repos .col-lg-9 > .col-12 > .float-right { grid-area: actions; float: none !important; }
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .float-right { grid-area: actions; float: none !important; }
     body.gst-active #user-list-repositories > .col-12 > .float-right > a[href^="/sponsors/"],
-    body.gst-active #user-starred-repos .col-lg-9 > .col-12 > .float-right > a[href^="/sponsors/"] { display: none !important; }
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .float-right > a[href^="/sponsors/"] { display: none !important; }
     body.gst-active #user-list-repositories > .col-12 > .py-1,
-    body.gst-active #user-starred-repos .col-lg-9 > .col-12 > .py-1 { grid-area: description; min-width: 0; padding: 0 !important; }
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .py-1 { grid-area: description; min-width: 0; padding: 0 !important; }
     body.gst-active #user-list-repositories > .col-12 > .py-1 p,
-    body.gst-active #user-starred-repos .col-lg-9 > .col-12 > .py-1 p {
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .py-1 p {
       display: block !important;
       overflow: visible;
       -webkit-line-clamp: unset;
@@ -241,7 +241,7 @@
       padding-right: 0 !important;
     }
     body.gst-active #user-list-repositories > .col-12 > .f6,
-    body.gst-active #user-starred-repos .col-lg-9 > .col-12 > .f6 { grid-area: meta; margin: 0 !important; }
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 { grid-area: meta; margin: 0 !important; }
     body.gst-active #user-list-repositories > .paginate-container,
     body.gst-active #user-starred-repos .paginate-container { margin: 8px 0 0; }
     #gst-toolbar { margin: 0 0 14px; }
@@ -252,6 +252,7 @@
     #gst-filters .gst-filter-menu { position: relative; }
     #gst-filters .gst-filter-menu .SelectMenu-item { width: 100%; text-align: left; }
     #gst-results-status { margin: 0; color: var(--fgColor-muted, var(--color-fg-muted, #656d76)); font-size: 14px; }
+    #gst-results-status svg { display: none !important; }
     #gst-results-status:empty { display: none; }
     user-list-menu dialog[data-gst-positioning] { opacity: 0 !important; }
     .gst-dialog { width: min(440px, calc(100vw - 32px)); max-height: min(80vh, 700px); overflow: auto; box-sizing: border-box; padding: 20px; border: 1px solid var(--borderColor-default, var(--color-border-default, #d1d9e0)); border-radius: 8px; background: var(--bgColor-default, var(--color-canvas-default, #fff)); color: var(--fgColor-default, var(--color-fg-default, #1f2328)); }
@@ -278,12 +279,12 @@
     }
     @media (max-width: 400px) {
       body.gst-active #user-list-repositories > .col-12,
-      body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-9 > .col-12 {
+      body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) > .col-12 {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas: 'name' 'description' 'meta' 'actions';
       }
       body.gst-active #user-list-repositories > .col-12 > .float-right,
-      body.gst-active #user-starred-repos .col-lg-9 > .col-12 > .float-right { justify-self: end; }
+      body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .float-right { justify-self: end; }
     }
   `;
 
@@ -553,7 +554,7 @@
     if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
     const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
     const root = route.kind === 'list' ? doc.querySelector('#user-list-repositories') :
-      doc.querySelector('#user-starred-repos > .d-lg-flex > .col-lg-9');
+      doc.querySelector('#user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12)');
     if (!root) throw new Error('GitHub repository list was not found');
     const repositories = [...root.querySelectorAll(':scope > .col-12')].map(card => ({ key: repositoryKey(card), card }))
       .filter(repository => repository.key);
@@ -856,9 +857,11 @@
     status.id = 'gst-results-status';
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
-    if (previousStatus) status.append(...previousStatus.childNodes);
-    else if (listCount) {
-      status.append(...listCount.childNodes);
+    if (previousStatus) {
+      previousStatus.querySelectorAll('svg').forEach(icon => icon.remove());
+      status.append(...previousStatus.childNodes);
+    } else if (listCount) {
+      status.textContent = scopeTotal;
       listCount.remove();
     } else if (route.kind === 'all') {
       const nativeStatus = frame.querySelector('#user-starred-repos .TableObject-item--primary')?.textContent.trim();
@@ -901,7 +904,7 @@
       const listUrl = `${ORIGIN}/stars/${route.owner}/lists/${route.slug}`;
       try {
         const target = route.kind === 'list' ? frame.querySelector('#user-list-repositories') :
-          frame.querySelector('#user-starred-repos > .d-lg-flex > .col-lg-9');
+          frame.querySelector('#user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12)');
         if (!target) throw new Error('GitHub repository list was not found');
         if (route.kind === 'list' && filters.sort === 'default' && filtered) {
           const [all, members] = await Promise.all([
@@ -1023,7 +1026,7 @@
     frame.classList.toggle('gst-overview', route.kind === 'all');
     frame.classList.toggle('gst-list', route.kind === 'list');
     const root = route.kind === 'list' ? frame.querySelector('#user-list-repositories') :
-      frame.querySelector('#user-starred-repos > .d-lg-flex > .col-lg-9');
+      frame.querySelector('#user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12)');
     if (root && pageSnapshot?.root !== root) {
       pageSnapshot = { frame, root, children: [...frame.childNodes].map(node => node.cloneNode(true)) };
     }

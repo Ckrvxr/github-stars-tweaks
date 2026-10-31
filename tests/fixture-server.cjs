@@ -49,9 +49,9 @@ function overview(url) {
     <div class="d-flex flex-column">Old filters <div id="stars-type-filter-menu-list"><a href="/Fixture?tab=stars&language=Go&type=public">Public</a></div>
     <ul id="stars-language-filter-menu-list"><li><a href="/Fixture?tab=stars&language=Go">Go</a></li><li><a href="/Fixture?tab=stars&language=Python">Python</a></li></ul>
     <div id="stars-sort-menu-list"><a href="/Fixture?tab=stars&language=Go&sort=stars">Most stars</a></div></div>
-    <turbo-frame id="user-starred-repos"><div class="d-lg-flex"><div class="col-lg-9">
+    <turbo-frame id="user-starred-repos"><div class="d-lg-flex"><div class="${url.searchParams.has('without_topics') ? 'col-lg-12' : 'col-lg-9'}">
     <div class="position-relative"><h2>Starred repositories</h2></div>${p.get('q') === 'bulk' ? '<div class="TableObject"><span class="TableObject-item--primary">35 stars matching bulk</span></div>' : p.get('language') ? '<div class="TableObject"><span class="TableObject-item--primary">Filtered repositories</span><a class="issues-reset-query" href="/Fixture?tab=stars">Clear filter</a></div>' : ''}${results.slice((page - 1) * 30, page * 30).map(r => card(r, true)).join('')}${pagination(url, page, results.length, 30)}</div>
-    <div class="col-lg-3">Starred topics</div></div></turbo-frame></div>`;
+    ${url.searchParams.has('without_topics') ? '' : '<div class="col-lg-3">Starred topics</div>'}</div></turbo-frame></div>`;
 }
 
 function listPage(url, slug) {
@@ -60,7 +60,7 @@ function listPage(url, slug) {
   const subset = members.slice((page - 1) * 2, page * 2).map(key => repositories.find(r => r.key === key));
   const name = slug === 'ai' ? 'AI' : 'Infrastructure';
   return `<div><a class="breadcrumb" href="/Fixture?tab=stars">Stars</a><div class="tmp-my-3"><div><h1>${name}</h1>
-    <button data-show-dialog-id="edit-list-dialog-${slug}">Edit list</button>${listHelper(slug)}</div><div class="color-fg-muted">List description</div><div class="color-fg-muted">${members.length} repositories</div></div>
+    <button data-show-dialog-id="edit-list-dialog-${slug}">Edit list</button>${listHelper(slug)}</div><div class="color-fg-muted">List description</div><div class="color-fg-muted"><svg class="octicon octicon-repo mr-1"></svg>${members.length} repositories</div></div>
     <div id="user-list-repositories">${subset.map(r => card(r, false)).join('')}${pagination(url, page, members.length)}</div></div>`;
 }
 

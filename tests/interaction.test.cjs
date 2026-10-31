@@ -24,7 +24,7 @@ function current() {
     type: document.querySelector('#gst-type')?.value,
     language: document.querySelector('#gst-language')?.value,
     sort: document.querySelector('#gst-sort')?.value,
-    cards: Array.from(document.querySelectorAll('#user-list-repositories > .col-12, #user-starred-repos .col-lg-9 > .col-12'))
+    cards: Array.from(document.querySelectorAll('#user-list-repositories > .col-12, #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12'))
       .map(card => card.querySelector('h2 a, h3 a')?.textContent.trim()),
     status: document.querySelector('#gst-results-status')?.textContent.trim()
   }))()`);
@@ -103,14 +103,17 @@ test('places the overview and list repository counts alongside the title', () =>
     const count = document.querySelector('#gst-results-status');
     const a = heading.getBoundingClientRect(), b = count.getBoundingClientRect();
     return { text: count.textContent.trim(), sameRow: b.left >= a.right && b.top < a.bottom && b.bottom > a.top,
+      hasIcon: !!count.querySelector('svg'),
       oldCount: [...document.querySelectorAll('#user-profile-frame > div > .tmp-my-3 > .color-fg-muted')]
         .some(e => /\\d+ repositories/.test(e.textContent)),
       description: document.querySelector('#user-profile-frame > div > .tmp-my-3 > .color-fg-muted')?.textContent.trim() };
   })()`);
   assert.equal(position().text, '40 repositories');
+  assert.equal(position().hasIcon, false);
   assert.equal(position().sameRow, true);
   openList('ai', 'AI');
   assert.equal(position().text, '3 repositories');
+  assert.equal(position().hasIcon, false);
   assert.equal(position().sameRow, true);
   assert.equal(position().oldCount, false);
   assert.equal(position().description, 'List description');
@@ -745,4 +748,17 @@ test('reflects filters already present in a GitHub Stars URL', () => {
   assert.equal(state.sort, 'stars');
   assert.equal(state.status, 'Filtered repositories');
   assert.equal(browser('eval', `getComputedStyle(document.querySelector('#user-starred-repos .TableObject')).display`), 'none');
+});
+
+test('handles stars overview without starred topics using col-lg-12 layout', () => {
+  browser('open', `${origin}/Fixture?tab=stars&without_topics=1`);
+  const state = current();
+  assert.equal(state.title, 'All repositories');
+  assert.equal(state.cards.length, 30);
+  assert.equal(browser('eval', `getComputedStyle(document.querySelector('#user-starred-repos .position-relative')).display`), 'none');
+  assert.ok(browser('eval', `document.querySelector('#user-starred-repos .col-lg-12').classList.contains('gst-masonry')`));
+  browser('eval', 'window.scrollTo(0, document.body.scrollHeight)');
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-12 > .col-12').length === 40`);
+  assert.equal(current().cards.length, 40);
+  browser('open', `${origin}/Fixture?tab=stars`);
 });
