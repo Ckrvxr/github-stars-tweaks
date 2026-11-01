@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub Stars Tweaks
 // @namespace    https://github.com/
-// @version      1.1.1
+// @version      1.2.0
 // @description  GitHub stars page tweaks
 // @author       Ckrvxr
 // @license      Apache-2.0
@@ -100,9 +100,25 @@
     return [...membership].filter(key => byKey.has(key)).map(key => byKey.get(key));
   }
 
+  const DAY = 86400000;
+  const GREEN_AFTER_DAYS = 30;
+  const YELLOW_AFTER_DAYS = 180;
+  const RED_AFTER_DAYS = 365;
+
+  // Position on a green -> yellow -> red ramp: 0 up to a month, 0.5 at half a
+  // year, 1 at a year. Logarithmic, so weeks, months and quarters are evenly
+  // spaced the way people read "how long ago".
+  function ageRatio(days) {
+    if (!(days > GREEN_AFTER_DAYS)) return 0;
+    if (days >= RED_AFTER_DAYS) return 1;
+    return days <= YELLOW_AFTER_DAYS ?
+      0.5 * Math.log(days / GREEN_AFTER_DAYS) / Math.log(YELLOW_AFTER_DAYS / GREEN_AFTER_DAYS) :
+      0.5 + 0.5 * Math.log(days / YELLOW_AFTER_DAYS) / Math.log(RED_AFTER_DAYS / YELLOW_AFTER_DAYS);
+  }
+
   if (typeof module === 'object' && module.exports && typeof window === 'undefined') {
     module.exports = { getRoute, extractLists, revealSelection, getProfileElements,
-      buildStarsUrl, nextPageUrl, selectRepositories };
+      buildStarsUrl, nextPageUrl, selectRepositories, ageRatio };
     return;
   }
 
@@ -244,6 +260,9 @@
       display: grid !important;
       --gst-card-min-width: 350px;
       --gst-card-gap: 12px;
+      --gst-green: var(--fgColor-success, var(--color-success-fg, #1a7f37));
+      --gst-yellow: var(--fgColor-severe, var(--color-severe-fg, #bc4c00));
+      --gst-red: var(--fgColor-danger, var(--color-danger-fg, #cf222e));
       grid-template-columns: repeat(auto-fit, minmax(min(100%, max(var(--gst-card-min-width), calc((100% - var(--gst-card-gap)) / 2))), 1fr));
       gap: var(--gst-card-gap);
       border-top: 0 !important;
@@ -305,8 +324,36 @@
       margin: 0 !important;
       padding-right: 0 !important;
     }
+    /* The metadata row wraps item by item; the updated time is pushed to the
+       card's right edge so a wrapped row never ends in a lone fragment. */
     body.gst-active #user-list-repositories > .col-12 > .f6,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 { grid-area: meta; margin: 0 !important; }
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 {
+      display: flex !important;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 2px 12px;
+      grid-area: meta;
+      margin: 0 !important;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    body.gst-active #user-list-repositories > .col-12 > .f6 > *,
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 > * { margin-right: 0 !important; }
+    body.gst-active #user-list-repositories > .col-12 > .f6 .octicon,
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 .octicon {
+      margin-right: 2px;
+      vertical-align: text-bottom;
+    }
+    body.gst-active #user-list-repositories > .col-12 > .f6 > :is(:has(relative-time), relative-time),
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 > :is(:has(relative-time), relative-time) {
+      margin-left: auto !important;
+      white-space: nowrap;
+    }
+    body.gst-active #user-list-repositories > .col-12 > .f6 .gst-updated,
+    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 .gst-updated {
+      color: var(--gst-age-from, inherit);
+      color: color-mix(in oklch, var(--gst-age-from) calc((1 - var(--gst-age, 0)) * 100%), var(--gst-age-to));
+    }
     body.gst-active #user-list-repositories > .paginate-container,
     body.gst-active #user-starred-repos .paginate-container { margin: 8px 0 0; }
     #gst-toolbar { margin: 0 0 14px; }
@@ -594,6 +641,53 @@
     return results;
   }
 
+  // Group the whole "Updated <time>" phrase so it stays on one line and tints as
+  // a unit. GitHub renders the label as a bare text node, so it is moved into a
+  // wrapper next to its relative-time element.
+  function joinUpdatedTime(root) {
+    for (const meta of root.querySelectorAll(':scope > .col-12 > .f6')) {
+      if (meta.querySelector(':scope > .gst-updated')) continue;
+      const holder = meta.querySelector(':scope > *:has(relative-time)');
+      if (holder) {
+        holder.classList.add('gst-updated');
+        continue;
+      }
+      for (const node of [...meta.childNodes]) {
+        if (node.nodeType !== 3 || !/^\s*Updated\s*$/.test(node.nodeValue)) continue;
+        const time = node.nextSibling;
+        if (time?.nodeName !== 'RELATIVE-TIME') continue;
+        const group = document.createElement('span');
+        group.className = 'gst-updated';
+        meta.insertBefore(group, node);
+        group.append(node, time);
+        break;
+      }
+    }
+  }
+
+  // Paint the timestamp on a ramp from GitHub green (fresh) through yellow to
+  // red (a year or more). The browser interpolates in OKLCH; this only picks the
+  // segment and the position inside it.
+  function paintActivity(root, now = Date.now()) {
+    for (const card of root.querySelectorAll(':scope > .col-12')) {
+      const time = card.querySelector('.f6 relative-time[datetime]');
+      if (!time) continue;
+      const stamp = Date.parse(time.getAttribute('datetime'));
+      if (!Number.isFinite(stamp)) continue;
+      const ratio = ageRatio(Math.max(0, now - stamp) / DAY);
+      const fresh = ratio <= 0.5;
+      card.style.setProperty('--gst-age', (fresh ? ratio * 2 : ratio * 2 - 1).toFixed(3));
+      card.style.setProperty('--gst-age-from', fresh ? 'var(--gst-green)' : 'var(--gst-yellow)');
+      card.style.setProperty('--gst-age-to', fresh ? 'var(--gst-yellow)' : 'var(--gst-red)');
+    }
+  }
+
+  function decorateCards(root) {
+    if (!root) return;
+    joinUpdatedTime(root);
+    paintActivity(root);
+  }
+
   let activeMasonry = null;
 
   function installMasonry(root) {
@@ -609,7 +703,7 @@
     const updateColumns = () => {
       const style = getComputedStyle(root);
       const width = root.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
-      const minWidth = parseFloat(style.getPropertyValue('--gst-card-min-width'));
+      const minWidth = parseFloat(style.getPropertyValue('--gst-card-min-width')) || 350;
       const gap = parseFloat(style.getPropertyValue('--gst-card-gap'));
       const cards = [...root.children].filter(child => child.classList.contains('col-12'));
       const columns = Math.max(1, Math.min(2, cards.length, Math.floor((width + gap) / (minWidth + gap))));
@@ -674,6 +768,7 @@
     sentinel.setAttribute('role', 'status');
     sentinel.setAttribute('aria-live', 'polite');
     root.append(sentinel);
+    decorateCards(root);
     let loading = false;
     let failed = false;
     let more = hasMore;
@@ -692,6 +787,7 @@
         const batch = await getNext(controller.signal);
         if (controller.signal.aborted || !root.isConnected || activeStream !== stream) return;
         for (const card of batch.cards) root.insertBefore(card, sentinel);
+        decorateCards(root);
         more = batch.hasMore;
         if (!more) showEnd();
         else {
@@ -1057,6 +1153,7 @@
       pageSnapshot = { frame, root, children: [...frame.childNodes].map(node => node.cloneNode(true)) };
     }
     installToolbar(frame, route);
+    decorateCards(root);
     installMasonry(root);
     if (root) startNativeStream(root, route);
     else { stopStream(); pageSnapshot = null; }

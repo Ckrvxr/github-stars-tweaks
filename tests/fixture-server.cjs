@@ -2,13 +2,15 @@ const http = require('node:http');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 
+const DAY = 86400000;
+const NOW = Date.now();
 const repositories = [
-  { key: 'alpha/one', text: 'first', language: 'Go', type: 'source', stars: 60 },
-  { key: 'bravo/two', text: 'target', language: 'Go', type: 'fork', stars: 50 },
-  { key: 'charlie/three', text: 'target', language: 'Go', type: 'fork', stars: 40 },
-  { key: 'delta/four', text: 'target', language: 'Go', type: 'fork', stars: 30 },
-  { key: 'echo/five', text: 'target', language: 'Python', type: 'fork', stars: 20 },
-  ...Array.from({ length: 35 }, (_, i) => ({ key: `bulk/repo-${i + 1}`, text: 'bulk', language: 'Rust', type: 'source', stars: 1000 - i })),
+  { key: 'alpha/one', text: 'first', language: 'Go', type: 'source', stars: 60, forks: 6, days: 2 },
+  { key: 'bravo/two', text: 'target', language: 'Go', type: 'fork', stars: 50, forks: 5, days: 120 },
+  { key: 'charlie/three', text: 'target', language: 'Go', type: 'fork', stars: 40, forks: 4, days: 400 },
+  { key: 'delta/four', text: 'target', language: 'Go', type: 'fork', stars: 30, forks: 3, days: 2 },
+  { key: 'echo/five', text: 'target', language: 'Python', type: 'fork', stars: 20, forks: 2, days: 120 },
+  ...Array.from({ length: 35 }, (_, i) => ({ key: `bulk/repo-${i + 1}`, text: 'bulk', language: 'Rust', type: 'source', stars: 1000 - i, forks: 1, days: [2, 120, 400][i % 3] })),
 ];
 const lists = { ai: ['alpha/one', 'delta/four', 'charlie/three'], infra: ['bravo/two', 'echo/five'] };
 const script = readFileSync(join(__dirname, '..', 'github-stars-tweaks.user.js'), 'utf8');
@@ -16,9 +18,13 @@ let origin;
 
 function card(repo, overview) {
   const heading = overview ? 'h3' : 'h2';
+  const updated = new Date(NOW - repo.days * DAY).toISOString();
   return `<div class="col-12"><div class="d-inline-block"><${heading}><a href="/${repo.key}">${repo.key}</a></${heading}></div>
     <div class="float-right"><button>Starred</button></div><div class="py-1"><p>${repo.text}</p></div>
-    <div class="f6"><span itemprop="programmingLanguage">${repo.language}</span><a href="/${repo.key}/stargazers">${repo.stars}</a></div></div>`;
+    <div class="f6 color-fg-muted mt-2"><span class="tmp-mr-3"><span itemprop="programmingLanguage">${repo.language}</span></span>
+      <a class="Link--muted tmp-mr-3" href="/${repo.key}/stargazers">${repo.stars}</a>
+      <a class="Link--muted tmp-mr-3" href="/${repo.key}/forks">${repo.forks}</a>
+      Updated <relative-time datetime="${updated}" class="no-wrap">recently</relative-time></div></div>`;
 }
 
 function pagination(url, page, total, pageSize = 2) {

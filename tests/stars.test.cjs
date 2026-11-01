@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
-const { getRoute, extractLists, revealSelection, getProfileElements } = require('../github-stars-tweaks.user.js');
+const { getRoute, extractLists, revealSelection, getProfileElements, ageRatio } = require('../github-stars-tweaks.user.js');
 
 test('starts safely before the document element is available', () => {
   const listeners = {};
@@ -119,4 +119,15 @@ test('ignores duplicate, foreign, malformed, and untitled list links', () => {
   assert.deepEqual(extractLists(doc, 'Ckrvxr'), [
     { name: 'Common', href: '/stars/Ckrvxr/lists/common', count: '1' },
   ]);
+});
+
+test('maps repository age onto a green-yellow-red ramp', () => {
+  assert.equal(ageRatio(0), 0);
+  assert.equal(ageRatio(30), 0);
+  assert.equal(ageRatio(180), 0.5);
+  assert.equal(ageRatio(365), 1);
+  assert.equal(ageRatio(2000), 1);
+  assert.equal(ageRatio(Number.NaN), 0);
+  assert.ok(ageRatio(60) > 0 && ageRatio(60) < 0.5);
+  assert.ok(ageRatio(270) > 0.5 && ageRatio(270) < 1);
 });

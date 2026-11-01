@@ -779,3 +779,95 @@ test('handles stars overview without starred topics using col-lg-12 layout', () 
   assert.equal(current().cards.length, 40);
   browser('open', `${origin}/Fixture?tab=stars`);
 });
+
+test('groups each updated time and pins it to the card edge', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('set', 'viewport', '1200', '800');
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 30`);
+  const result = browser('eval', `(() => {
+    const cards = [...document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12')];
+    const meta = cards[0].querySelector('.f6');
+    const updated = meta.querySelector('.gst-updated');
+    const card = cards[0].getBoundingClientRect();
+    return {
+      grouped: cards.filter(card => card.querySelector(':scope > .f6 > .gst-updated')).length,
+      bare: cards.filter(card => [...card.querySelector('.f6').childNodes]
+        .some(node => node.nodeType === 3 && node.nodeValue.trim() === 'Updated')).length,
+      total: cards.length,
+      text: updated.textContent.trim(),
+      nowrap: getComputedStyle(updated).whiteSpace,
+      gap: getComputedStyle(meta).columnGap,
+      right: updated.getBoundingClientRect().right,
+      limit: card.right - parseFloat(getComputedStyle(cards[0]).paddingRight),
+    };
+  })()`);
+  assert.equal(result.grouped, result.total, 'every card must group its updated time');
+  assert.equal(result.bare, 0, 'no bare Updated label may be left behind');
+  assert.equal(result.text, 'Updated recently');
+  assert.equal(result.nowrap, 'nowrap');
+  assert.equal(result.gap, '12px');
+  assert.ok(Math.abs(result.right - result.limit) <= 1, `updated time must sit on the card edge: ${result.right} vs ${result.limit}`);
+});
+
+test('tints the updated time from green through yellow to red by age', () => {
+  const result = browser('eval', `(() => {
+    const cards = [...document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12')].slice(0, 3);
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    probe.style.color = 'color-mix(in oklch, #1a7f37 100%, #bc4c00)';
+    const green = getComputedStyle(probe).color;
+    probe.style.color = 'color-mix(in oklch, #bc4c00 0%, #cf222e)';
+    const red = getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      green, red,
+      ages: cards.map(card => card.style.getPropertyValue('--gst-age')),
+      from: cards.map(card => card.style.getPropertyValue('--gst-age-from')),
+      colors: cards.map(card => getComputedStyle(card.querySelector('.gst-updated')).color),
+    };
+  })()`);
+  assert.equal(result.ages[0], '0.000');
+  assert.equal(result.ages[2], '1.000');
+  assert.deepEqual(result.from, ['var(--gst-green)', 'var(--gst-green)', 'var(--gst-yellow)']);
+  assert.equal(result.colors[0], result.green, 'a fresh repository must use GitHub success green');
+  assert.equal(result.colors[2], result.red, 'a repository a year old must use GitHub danger red');
+  assert.notEqual(result.colors[1], result.colors[0]);
+  assert.notEqual(result.colors[1], result.colors[2]);
+});
+
+test('wraps the metadata row without stranding the updated time', () => {
+  browser('set', 'viewport', '320', '800');
+  const result = browser('eval', `(() => {
+    const meta = document.querySelector('#user-starred-repos .col-lg-9 > .col-12 > .f6');
+    meta.querySelector('[itemprop="programmingLanguage"]').textContent = 'An extremely long language name here';
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const updated = meta.querySelector('.gst-updated').getBoundingClientRect();
+      const bounds = meta.getBoundingClientRect();
+      resolve({ height: bounds.height, lineHeight: parseFloat(getComputedStyle(meta).lineHeight),
+        right: updated.right, metaRight: bounds.right, bottom: updated.bottom, metaBottom: bounds.bottom });
+    })));
+  })()`);
+  assert.ok(result.height > result.lineHeight * 1.5, `meta row must wrap on a phone: ${result.height}`);
+  assert.ok(Math.abs(result.right - result.metaRight) <= 1, `wrapped update must stay right-aligned: ${result.right} vs ${result.metaRight}`);
+  assert.ok(result.bottom <= result.metaBottom + 1, 'updated time must stay inside the metadata row');
+  browser('set', 'viewport', '1280', '800');
+});
+
+test('decorates repositories that are appended while scrolling', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('eval', 'window.scrollTo(0, document.body.scrollHeight)');
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 40`);
+  const result = browser('eval', `(() => {
+    const cards = [...document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12')];
+    const last = cards.at(-1);
+    const updated = last.querySelector('.gst-updated');
+    return { total: cards.length, grouped: !!updated, age: last.style.getPropertyValue('--gst-age'),
+      text: updated?.textContent.trim(), right: updated?.getBoundingClientRect().right,
+      limit: last.getBoundingClientRect().right - parseFloat(getComputedStyle(last).paddingRight) };
+  })()`);
+  assert.equal(result.total, 40);
+  assert.equal(result.grouped, true);
+  assert.match(result.age, /^\d\.\d{3}$/);
+  assert.equal(result.text, 'Updated recently');
+  assert.ok(Math.abs(result.right - result.limit) <= 1);
+});
