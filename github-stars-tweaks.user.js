@@ -9,6 +9,8 @@
 // @homepageURL  https://github.com/Ckrvxr/github-stars-tweaks
 // @match        https://github.com/*
 // @run-at       document-start
+// @downloadURL  https://update.greasyfork.org/scripts/603172/GitHub%20Stars%20Tweaks.user.js
+// @updateURL    https://update.greasyfork.org/scripts/603172/GitHub%20Stars%20Tweaks.meta.js
 // ==/UserScript==
 
 (() => {

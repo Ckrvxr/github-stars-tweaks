@@ -18,8 +18,8 @@ Repositories default to Recently starred, preserving the original page order; Re
 
 ## Installation & Updates
 
-1. Install Tampermonkey or ScriptCat in your browser.
-2. Create a new userscript or open your existing GitHub Stars Tweaks script, paste the entire contents of [`github-stars-tweaks.user.js`](github-stars-tweaks.user.js), and save.
+1. Install [Tampermonkey](https://www.tampermonkey.net/) or [ScriptCat](https://scriptcat.org/) or [Violentmonkey](https://violentmonkey.github.io/) in your browser.
+2. Click [`github-stars-tweaks.user.js`](https://github.com/Ckrvxr/github-stars-tweaks/raw/refs/heads/main/github-stars-tweaks.user.js), and install.
 3. Refresh the **Stars** tab or any list page on your GitHub profile.
 
 The script runs at early page load and only adjusts the UI on GitHub Stars overview and list detail pages. During initialization, repository areas are briefly hidden to minimize layout shift and flicker. Filtering and list fetching use GitHub same-origin requests—no personal access tokens, Gists, or external services are required, and the script never automatically modifies stars or lists. Create, edit, and delete actions occur only when explicitly performed by the user via GitHub's native dialogs. Disabling the script immediately restores GitHub's native interface.
