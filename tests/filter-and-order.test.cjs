@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildStarsUrl, nextPageUrl, selectRepositories } = require('../github-stars-tweaks.user.js');
+const { buildStarsUrl, nextPageUrl, filterRepositoriesByMembership,
+  orderRepositoriesByMembership, getRepositoryLoadPlan } = require('../github-stars-tweaks.user.js');
 
 const origin = 'https://github.com';
 
@@ -42,11 +43,22 @@ test('follows GitHub list and overview next links without leaving the current sc
   assert.equal(nextPageUrl(pageWithLinks([{ text: 'Next', href: '/stars/Ckrvxr/lists/other?page=2' }]), list), null);
 });
 
+test('selects an explicit loading strategy for each repository scope', () => {
+  const list = { kind: 'list' }, all = { kind: 'all' };
+  const defaults = { query: '', type: '', language: '', sort: 'default' };
+  for (const [route, filters, plan] of [
+    [list, defaults, 'native-list'],
+    [list, { ...defaults, query: 'compiler' }, 'filtered-list-order'],
+    [list, { ...defaults, sort: 'stars' }, 'search-list'],
+    [all, defaults, 'search'],
+  ]) assert.equal(getRepositoryLoadPlan(route, filters), plan);
+});
+
 test('filters a whole category while preserving GitHub result order', () => {
   const repositories = [{ key: '/b/second' }, { key: '/a/first' }, { key: '/c/third' }];
-  assert.deepEqual(selectRepositories(repositories, new Set(['/c/third', '/a/first'])).map(r => r.key),
+  assert.deepEqual(filterRepositoriesByMembership(repositories, new Set(['/c/third', '/a/first'])).map(repo => repo.key),
     ['/a/first', '/c/third']);
-  assert.deepEqual(selectRepositories(repositories, null), repositories);
-  assert.deepEqual(selectRepositories(repositories, new Set(['/c/third', '/a/first']), true).map(r => r.key),
+  assert.deepEqual(filterRepositoriesByMembership(repositories, null), repositories);
+  assert.deepEqual(orderRepositoriesByMembership(repositories, new Set(['/c/third', '/a/first'])).map(repo => repo.key),
     ['/c/third', '/a/first'], 'default category order follows the original list');
 });

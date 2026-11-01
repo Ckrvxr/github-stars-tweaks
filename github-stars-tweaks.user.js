@@ -93,11 +93,20 @@
     return null;
   }
 
-  function selectRepositories(repositories, membership, preserveListOrder = false) {
-    if (!membership) return repositories;
-    if (!preserveListOrder) return repositories.filter(repository => membership.has(repository.key));
+  function filterRepositoriesByMembership(repositories, membership) {
+    return membership ? repositories.filter(repository => membership.has(repository.key)) : repositories;
+  }
+
+  function orderRepositoriesByMembership(repositories, membership) {
     const byKey = new Map(repositories.map(repository => [repository.key, repository]));
     return [...membership].filter(key => byKey.has(key)).map(key => byKey.get(key));
+  }
+
+  function getRepositoryLoadPlan(route, filters) {
+    const hasFilters = !!(filters.query || filters.type || filters.language);
+    if (route.kind !== 'list') return 'search';
+    if (filters.sort !== 'default') return 'search-list';
+    return hasFilters ? 'filtered-list-order' : 'native-list';
   }
 
   const DAY = 86400000;
@@ -118,7 +127,8 @@
 
   if (typeof module === 'object' && module.exports && typeof window === 'undefined') {
     module.exports = { getRoute, extractLists, revealSelection, getProfileElements,
-      buildStarsUrl, nextPageUrl, selectRepositories, ageRatio };
+      buildStarsUrl, nextPageUrl, filterRepositoriesByMembership, orderRepositoriesByMembership,
+      getRepositoryLoadPlan, ageRatio };
     return;
   }
 
@@ -255,8 +265,7 @@
     body.gst-active #user-starred-repos > .d-lg-flex { display: block !important; margin-top: 20px !important; }
     body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) { width: 100% !important; max-width: none !important; }
     body.gst-active #user-starred-repos > .d-lg-flex > .col-lg-3 { display: none !important; }
-    body.gst-active #user-list-repositories,
-    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) {
+    body.gst-active .gst-repository-grid {
       display: grid !important;
       --gst-card-min-width: 350px;
       --gst-card-gap: 12px;
@@ -268,26 +277,21 @@
       border-top: 0 !important;
       margin-top: 16px !important;
     }
-    body.gst-active #user-list-repositories { margin-top: 6px !important; }
-    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) > :not(.col-12),
-    body.gst-active #user-list-repositories > .paginate-container { grid-column: 1 / -1; }
-    body.gst-active #user-list-repositories.gst-masonry,
-    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12).gst-masonry {
+    body.gst-active .gst-repository-grid#user-list-repositories { margin-top: 6px !important; }
+    body.gst-active .gst-repository-grid > :not(.col-12) { grid-column: 1 / -1; }
+    body.gst-active .gst-repository-grid.gst-masonry {
       grid-auto-rows: 4px;
       grid-auto-flow: row dense;
       row-gap: 0;
     }
-    body.gst-active #user-list-repositories.gst-masonry > *,
-    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12).gst-masonry > * {
+    body.gst-active .gst-repository-grid.gst-masonry > * {
       align-self: start;
       grid-row-end: span var(--gst-grid-span, 1);
     }
-    body.gst-active #user-list-repositories.gst-masonry > .col-12,
-    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12).gst-masonry > .col-12 {
+    body.gst-active .gst-repository-grid.gst-masonry > .col-12 {
       grid-column: var(--gst-grid-column, auto);
     }
-    body.gst-active #user-list-repositories > .col-12,
-    body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) > .col-12 {
+    body.gst-active .gst-repository-grid > .col-12 {
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas: 'name actions' 'description description' 'meta meta';
@@ -302,19 +306,12 @@
       border-radius: 6px;
       background: var(--bgColor-default, var(--color-canvas-default, #fff));
     }
-    body.gst-active #user-list-repositories > .col-12 > .d-inline-block,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .d-inline-block { grid-area: name; min-width: 0; margin: 0 !important; }
-    body.gst-active #user-list-repositories > .col-12 h2,
-    body.gst-active #user-list-repositories > .col-12 h3,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 h3 { margin: 0; font-size: 14px !important; line-height: 1.45; overflow-wrap: anywhere; }
-    body.gst-active #user-list-repositories > .col-12 > .float-right,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .float-right { grid-area: actions; float: none !important; }
-    body.gst-active #user-list-repositories > .col-12 > .float-right > a[href^="/sponsors/"],
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .float-right > a[href^="/sponsors/"] { display: none !important; }
-    body.gst-active #user-list-repositories > .col-12 > .py-1,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .py-1 { grid-area: description; min-width: 0; padding: 0 !important; }
-    body.gst-active #user-list-repositories > .col-12 > .py-1 p,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .py-1 p {
+    body.gst-active .gst-repository-grid > .col-12 > .d-inline-block { grid-area: name; min-width: 0; margin: 0 !important; }
+    body.gst-active .gst-repository-grid > .col-12 :is(h2, h3) { margin: 0; font-size: 14px !important; line-height: 1.45; overflow-wrap: anywhere; }
+    body.gst-active .gst-repository-grid > .col-12 > .float-right { grid-area: actions; float: none !important; }
+    body.gst-active .gst-repository-grid > .col-12 > .float-right > a[href^="/sponsors/"] { display: none !important; }
+    body.gst-active .gst-repository-grid > .col-12 > .py-1 { grid-area: description; min-width: 0; padding: 0 !important; }
+    body.gst-active .gst-repository-grid > .col-12 > .py-1 p {
       display: block !important;
       overflow: visible;
       -webkit-line-clamp: unset;
@@ -326,8 +323,7 @@
     }
     /* The metadata row wraps item by item; the updated time is pushed to the
        card's right edge so a wrapped row never ends in a lone fragment. */
-    body.gst-active #user-list-repositories > .col-12 > .f6,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 {
+    body.gst-active .gst-repository-grid > .col-12 > .f6 {
       display: flex !important;
       flex-wrap: wrap;
       align-items: baseline;
@@ -337,25 +333,20 @@
       font-size: 12px;
       line-height: 1.6;
     }
-    body.gst-active #user-list-repositories > .col-12 > .f6 > *,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 > * { margin-right: 0 !important; }
-    body.gst-active #user-list-repositories > .col-12 > .f6 .octicon,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 .octicon {
+    body.gst-active .gst-repository-grid > .col-12 > .f6 > * { margin-right: 0 !important; }
+    body.gst-active .gst-repository-grid > .col-12 > .f6 .octicon {
       margin-right: 2px;
       vertical-align: text-bottom;
     }
-    body.gst-active #user-list-repositories > .col-12 > .f6 > :is(:has(relative-time), relative-time),
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 > :is(:has(relative-time), relative-time) {
+    body.gst-active .gst-repository-grid > .col-12 > .f6 > :is(:has(relative-time), relative-time) {
       margin-left: auto !important;
       white-space: nowrap;
     }
-    body.gst-active #user-list-repositories > .col-12 > .f6 .gst-updated,
-    body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .f6 .gst-updated {
+    body.gst-active .gst-repository-grid > .col-12 > .f6 .gst-updated {
       color: var(--gst-age-from, inherit);
       color: color-mix(in oklch, var(--gst-age-from) calc((1 - var(--gst-age, 0)) * 100%), var(--gst-age-to));
     }
-    body.gst-active #user-list-repositories > .paginate-container,
-    body.gst-active #user-starred-repos .paginate-container { margin: 8px 0 0; }
+    body.gst-active .gst-repository-grid > .paginate-container { margin: 8px 0 0; }
     #gst-toolbar { margin: 0 0 14px; }
     #gst-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 14px; }
     #gst-toolbar h1 { margin: 0; font-size: 24px !important; line-height: 1.25; }
@@ -380,13 +371,11 @@
       #gst-navigation .gst-name { overflow-wrap: normal; }
     }
     @media (max-width: 400px) {
-      body.gst-active #user-list-repositories > .col-12,
-      body.gst-active #user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12) > .col-12 {
+      body.gst-active .gst-repository-grid > .col-12 {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas: 'name' 'description' 'meta' 'actions';
       }
-      body.gst-active #user-list-repositories > .col-12 > .float-right,
-      body.gst-active #user-starred-repos :is(.col-lg-9, .col-lg-12) > .col-12 > .float-right { justify-self: end; }
+      body.gst-active .gst-repository-grid > .col-12 > .float-right { justify-self: end; }
     }
   `;
 
@@ -695,10 +684,11 @@
     if (activeMasonry) {
       activeMasonry.resize.disconnect();
       activeMasonry.mutation.disconnect();
-      activeMasonry.root.classList.remove('gst-masonry');
+      activeMasonry.root.classList.remove('gst-masonry', 'gst-repository-grid');
       activeMasonry = null;
     }
     if (!root) return;
+    root.classList.add('gst-repository-grid');
     // Assign cards left to right, then stack each column independently.
     const updateColumns = () => {
       const style = getComputedStyle(root);
@@ -758,6 +748,12 @@
     activeStream.observer.disconnect();
     activeStream.sentinel.remove();
     activeStream = null;
+  }
+
+  function stopPageActivity() {
+    activeSearch?.abort();
+    stopStream();
+    installMasonry(null);
   }
 
   function startStream(root, hasMore, getNext, onRetry) {
@@ -833,10 +829,11 @@
     });
   }
 
+  const REPOSITORIES_PER_BATCH = 30;
+
   function renderResults(target, repositories, status) {
-    const pageSize = 30;
-    let index = pageSize;
-    const children = repositories.slice(0, pageSize).map(repository => repository.card);
+    let index = REPOSITORIES_PER_BATCH;
+    const children = repositories.slice(0, REPOSITORIES_PER_BATCH).map(repository => repository.card);
     if (!repositories.length) {
       const empty = document.createElement('p');
       empty.className = 'gst-empty';
@@ -846,8 +843,8 @@
     target.replaceChildren(...children);
     status.textContent = `${repositories.length} matching ${repositories.length === 1 ? 'repository' : 'repositories'}`;
     startStream(target, index < repositories.length, async () => {
-      const cards = repositories.slice(index, index + pageSize).map(repository => repository.card);
-      index += pageSize;
+      const cards = repositories.slice(index, index + REPOSITORIES_PER_BATCH).map(repository => repository.card);
+      index += REPOSITORIES_PER_BATCH;
       return { cards, hasMore: index < repositories.length };
     });
   }
@@ -919,10 +916,7 @@
     return details;
   }
 
-  function installToolbar(frame, route) {
-    const previous = frame.querySelector(':scope > #gst-toolbar');
-    if (previous?.__gstBound) return;
-    activeSearch?.abort();
+  function createToolbar(frame, route, previous) {
     const toolbar = document.createElement('div');
     toolbar.id = 'gst-toolbar';
     toolbar.__gstBound = true;
@@ -940,9 +934,11 @@
     const scopeTotal = previous?.dataset.gstScopeTotal ||
       (route.kind === 'list' ? listCount?.textContent.trim().replace(/\s+/g, ' ') : overviewTotal) || '';
     toolbar.dataset.gstScopeTotal = scopeTotal;
+
     const heading = oldHeading || document.createElement('h1');
     previous?.remove();
     if (!oldHeading) heading.textContent = route.kind === 'all' ? 'All repositories' : route.slug;
+
     const form = document.createElement('form');
     form.id = 'gst-filters';
     form.setAttribute('role', 'search');
@@ -957,6 +953,7 @@
     submit.type = 'submit';
     submit.className = 'btn';
     submit.textContent = 'Search';
+
     const type = document.createElement('select');
     type.id = 'gst-type';
     type.className = 'form-select';
@@ -973,6 +970,7 @@
     sort.className = 'form-select';
     sort.setAttribute('aria-label', 'Sort repositories');
     addOptions(sort, [['default', 'Recently starred'], ['updated', 'Recently active'], ['stars', 'Most stars']]);
+
     const status = document.createElement('span');
     status.id = 'gst-results-status';
     status.setAttribute('role', 'status');
@@ -987,6 +985,7 @@
       const nativeStatus = frame.querySelector('#user-starred-repos .TableObject-item--primary')?.textContent.trim();
       status.textContent = nativeStatus || overviewTotal;
     }
+
     form.append(query, submit,
       makeFilterMenu(type, 'Type', 'Filter by type', 'All'),
       makeFilterMenu(language, 'Language', 'Filter by language', 'All'),
@@ -997,6 +996,10 @@
     toolbar.append(titleRow, form);
     frame.prepend(toolbar);
     populateLanguages(document);
+    return { toolbar, form, query, type, language, sort, status, scopeTotal };
+  }
+
+  function restoreToolbarFilters(route, { query, type, language, sort }) {
     if (route.kind === 'all') {
       const params = new URL(location.href).searchParams;
       query.value = params.get('q') || '';
@@ -1011,6 +1014,122 @@
       if (['updated', 'stars'].includes(selectedSort)) sort.value = selectedSort;
     }
     for (const select of [type, language, sort]) select.__gstRender();
+  }
+
+  async function loadFilteredListRepositories(route, filters, signal) {
+    const allRoute = { owner: route.owner, kind: 'all', slug: null };
+    const listUrl = `${ORIGIN}/stars/${route.owner}/lists/${route.slug}`;
+    const [all, members] = await Promise.all([
+      collectRepositories(buildStarsUrl(route.owner, filters), allRoute, signal),
+      collectRepositories(listUrl, route, signal),
+    ]);
+    return orderRepositoriesByMembership(all, new Set(members.map(repository => repository.key)));
+  }
+
+  async function createSearchSession(route, filters, plan, {
+    signal, scopeTotal, isActive, onCount, onCountError,
+  }) {
+    const allRoute = { owner: route.owner, kind: 'all', slug: null };
+    const listUrl = `${ORIGIN}/stars/${route.owner}/lists/${route.slug}`;
+    const nativeList = plan === 'native-list';
+    const pageRoute = nativeList ? route : allRoute;
+    const url = nativeList ? listUrl : buildStarsUrl(route.owner, filters);
+    const [firstPage, members] = await Promise.all([
+      fetchRepositoryPage(url, pageRoute, signal),
+      plan === 'search-list' ? collectRepositories(listUrl, route, signal) : Promise.resolve(null),
+    ]);
+    if (signal.aborted || !isActive()) return null;
+
+    const membership = members ? new Set(members.map(repository => repository.key)) : null;
+    const hasFilters = !!(filters.query || filters.type || filters.language);
+    const totalLabel = !hasFilters && scopeTotal ? scopeTotal : (membership ? null : firstPage.countText);
+    const matches = page => filterRepositoriesByMembership(page.repositories, membership);
+    const buffered = matches(firstPage);
+    let total = buffered.length;
+    let next = firstPage.next;
+    let inFlight = null;
+    let countError = null;
+    const visited = new Set([url]);
+
+    const showCount = () => {
+      if (!isActive()) return;
+      onCount(totalLabel || (next ? 'Counting repositories…' :
+        `${total} ${hasFilters ? 'matching ' : ''}${total === 1 ? 'repository' : 'repositories'}`));
+    };
+    function scanNext() {
+      if (inFlight) return inFlight;
+      const current = next;
+      inFlight = (async () => {
+        try {
+          if (visited.has(current)) throw new Error('GitHub returned a repeated page');
+          const page = await fetchRepositoryPage(current, pageRoute, signal);
+          if (signal.aborted || !isActive()) return;
+          visited.add(current);
+          next = page.next;
+          const found = matches(page);
+          buffered.push(...found);
+          total += found.length;
+          showCount();
+        } catch (error) {
+          if (!signal.aborted && isActive()) {
+            countError = error;
+            if (!totalLabel) onCountError(retryCount);
+          }
+          throw error;
+        }
+      })().finally(() => { inFlight = null; });
+      return inFlight;
+    }
+    async function countInBackground() {
+      while (next && !countError && !signal.aborted && isActive()) {
+        try { await scanNext(); } catch { return; }
+      }
+    }
+    function retryCount() {
+      countError = null;
+      showCount();
+      if (!totalLabel) countInBackground();
+    }
+    async function getNext(streamSignal) {
+      while (!buffered.length && next && !streamSignal.aborted && !signal.aborted) {
+        if (countError) throw countError;
+        await scanNext();
+      }
+      if (streamSignal.aborted || signal.aborted || !isActive()) return { cards: [], hasMore: false };
+      const cards = buffered.splice(0, REPOSITORIES_PER_BATCH).map(repository => repository.card);
+      return { cards, hasMore: !!(buffered.length || next) };
+    }
+
+    showCount();
+    const firstBatch = await getNext(signal);
+    if (signal.aborted || !isActive()) return null;
+    return {
+      firstBatch,
+      getNext,
+      retryCount,
+      countInBackground,
+      shouldCount: !totalLabel && !!next,
+    };
+  }
+
+  function replaceInitialResults(target, batch) {
+    if (batch.cards.length) {
+      target.replaceChildren(...batch.cards);
+      return;
+    }
+    const empty = document.createElement('p');
+    empty.className = 'gst-empty';
+    empty.textContent = 'No repositories match these filters.';
+    target.replaceChildren(empty);
+  }
+
+  function installToolbar(frame, route) {
+    const previous = frame.querySelector(':scope > #gst-toolbar');
+    if (previous?.__gstBound) return;
+    activeSearch?.abort();
+    const controls = createToolbar(frame, route, previous);
+    const { toolbar, form, query, type, language, sort, status, scopeTotal } = controls;
+    restoreToolbarFilters(route, controls);
 
     const apply = async () => {
       activeSearch?.abort();
@@ -1018,105 +1137,39 @@
       const controller = new AbortController();
       activeSearch = controller;
       const filters = { query: query.value.trim(), type: type.value, language: language.value, sort: sort.value };
-      const filtered = !!(filters.query || filters.type || filters.language);
-      status.textContent = !filtered && scopeTotal ? scopeTotal : 'Loading repositories…';
-      const allRoute = { owner: route.owner, kind: 'all', slug: null };
-      const listUrl = `${ORIGIN}/stars/${route.owner}/lists/${route.slug}`;
+      const plan = getRepositoryLoadPlan(route, filters);
+      const hasFilters = !!(filters.query || filters.type || filters.language);
+      status.textContent = !hasFilters && scopeTotal ? scopeTotal : 'Loading repositories…';
+      const isActive = () => toolbar.isConnected && !controller.signal.aborted;
       try {
         const target = route.kind === 'list' ? frame.querySelector('#user-list-repositories') :
           frame.querySelector('#user-starred-repos > .d-lg-flex > :is(.col-lg-9, .col-lg-12)');
         if (!target) throw new Error('GitHub repository list was not found');
-        if (route.kind === 'list' && filters.sort === 'default' && filtered) {
-          const [all, members] = await Promise.all([
-            collectRepositories(buildStarsUrl(route.owner, filters), allRoute, controller.signal),
-            collectRepositories(listUrl, route, controller.signal),
-          ]);
-          if (controller.signal.aborted || !toolbar.isConnected) return;
-          renderResults(target, selectRepositories(all, new Set(members.map(repository => repository.key)), true), status);
+        if (plan === 'filtered-list-order') {
+          const repositories = await loadFilteredListRepositories(route, filters, controller.signal);
+          if (!isActive()) return;
+          renderResults(target, repositories, status);
           return;
         }
-        const directList = route.kind === 'list' && filters.sort === 'default';
-        const pageRoute = directList ? route : allRoute;
-        const url = directList ? listUrl : buildStarsUrl(route.owner, filters);
-        const [first, members] = await Promise.all([
-          fetchRepositoryPage(url, pageRoute, controller.signal),
-          route.kind === 'list' && !directList ? collectRepositories(listUrl, route, controller.signal) : Promise.resolve(null),
-        ]);
-        if (controller.signal.aborted || !toolbar.isConnected) return;
-        const membership = members ? new Set(members.map(repository => repository.key)) : null;
-        const totalLabel = !filtered && scopeTotal ? scopeTotal : (membership ? null : first.countText);
-        const matches = page => membership ? page.repositories.filter(repository => membership.has(repository.key)) : page.repositories;
-        const buffered = matches(first);
-        let total = buffered.length;
-        let next = first.next;
-        let inFlight = null;
-        let countError = null;
-        const visited = new Set([url]);
-        const showCount = () => {
-          status.textContent = totalLabel || (next ? 'Counting repositories…' :
-            `${total} ${filtered ? 'matching ' : ''}${total === 1 ? 'repository' : 'repositories'}`);
-        };
-        const scanNext = () => {
-          if (inFlight) return inFlight;
-          const current = next;
-          inFlight = (async () => {
-            try {
-              if (visited.has(current)) throw new Error('GitHub returned a repeated page');
-              const page = await fetchRepositoryPage(current, pageRoute, controller.signal);
-              if (controller.signal.aborted || !toolbar.isConnected) return;
-              visited.add(current);
-              next = page.next;
-              const found = matches(page);
-              buffered.push(...found);
-              total += found.length;
-              showCount();
-            } catch (error) {
-              if (!controller.signal.aborted && toolbar.isConnected) {
-                countError = error;
-                if (!totalLabel) {
-                  status.textContent = 'Could not count repositories. ';
-                  status.append(makeButton('Retry', 'gst-count-retry', () => {
-                    if (!activeStream?.retry()) retryCount();
-                  }));
-                }
-              }
-              throw error;
-            }
-          })().finally(() => { inFlight = null; });
-          return inFlight;
-        };
-        const countInBackground = async () => {
-          while (next && !countError && !controller.signal.aborted && toolbar.isConnected) {
-            try { await scanNext(); } catch { return; }
-          }
-        };
-        const retryCount = () => {
-          countError = null;
-          showCount();
-          if (!totalLabel) countInBackground();
-        };
-        const getNext = async signal => {
-          while (!buffered.length && next && !signal.aborted) {
-            if (countError) throw countError;
-            await scanNext();
-          }
-          if (signal.aborted || !toolbar.isConnected) return { cards: [], hasMore: false };
-          const cards = buffered.splice(0, 30).map(repository => repository.card);
-          return { cards, hasMore: !!(buffered.length || next) };
-        };
-        showCount();
-        const batch = await getNext(controller.signal);
-        if (controller.signal.aborted || !toolbar.isConnected) return;
-        if (!batch.cards.length) {
-          const empty = document.createElement('p');
-          empty.className = 'gst-empty';
-          empty.textContent = 'No repositories match these filters.';
-          target.replaceChildren(empty);
-        } else target.replaceChildren(...batch.cards);
-        startStream(target, batch.hasMore, getNext, retryCount);
-        if (!totalLabel && next) countInBackground();
-      } catch (error) {
-        if (controller.signal.aborted || !toolbar.isConnected) return;
+
+        const session = await createSearchSession(route, filters, plan, {
+          signal: controller.signal,
+          scopeTotal,
+          isActive,
+          onCount: text => { status.textContent = text; },
+          onCountError: retryCount => {
+            status.textContent = 'Could not count repositories. ';
+            status.append(makeButton('Retry', 'gst-count-retry', () => {
+              if (!activeStream?.retry()) retryCount();
+            }));
+          },
+        });
+        if (!session || !isActive()) return;
+        replaceInitialResults(target, session.firstBatch);
+        startStream(target, session.firstBatch.hasMore, session.getNext, session.retryCount);
+        if (session.shouldCount) session.countInBackground();
+      } catch {
+        if (!isActive()) return;
         status.textContent = 'Could not load repositories. ';
         status.append(makeButton('Retry', 'gst-filter-retry', apply));
       }
@@ -1133,10 +1186,8 @@
       if (!route || document.readyState !== 'loading') document.documentElement.classList.remove('gst-pending');
       document.body?.classList.remove('gst-active');
       document.getElementById('gst-navigation')?.remove();
-      activeSearch?.abort();
-      stopStream();
+      stopPageActivity();
       pageSnapshot = null;
-      installMasonry(null);
       return;
     }
 
@@ -1222,9 +1273,7 @@
   });
   function resetCachedPage() {
     if (!pageSnapshot?.frame.isConnected) return;
-    activeSearch?.abort();
-    stopStream();
-    installMasonry(null);
+    stopPageActivity();
     const { frame, children } = pageSnapshot;
     frame.replaceChildren(...children.map(node => node.cloneNode(true)));
     frame.dataset.gstReturnToTop = 'true';

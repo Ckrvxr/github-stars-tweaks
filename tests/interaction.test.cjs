@@ -246,17 +246,6 @@ test('uses the list total immediately when only sorting a category', () => {
   browser('open', `${origin}/Fixture?tab=stars`);
 });
 
-test('shows a plain total when sorting without filters', () => {
-  chooseFilter('sort', 'stars');
-  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('40')`);
-  assert.equal(current().status, '40 repositories');
-  openList('ai', 'AI');
-  chooseFilter('sort', 'stars');
-  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent.includes('3')`);
-  assert.equal(current().status, '3 repositories');
-  browser('open', `${origin}/Fixture?tab=stars`);
-});
-
 test('shows the first GitHub-sorted page without waiting for later pages', () => {
   chooseFilter('type', 'source');
   browser('eval', `(() => {

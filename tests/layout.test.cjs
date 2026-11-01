@@ -37,8 +37,8 @@ const html = `<!doctype html><html><head><style>
   <div class="gst-links"><a class="gst-link">All repositories</a>
   <a class="gst-link" aria-current="page">A category</a></div></nav></div>
   <div class="Layout-main"><div id="user-profile-frame"><h1>Repositories</h1>
-  <div id="user-list-repositories">${cards}</div>
-  <div id="user-starred-repos"><div class="d-lg-flex"><div class="col-lg-9">
+  <div id="user-list-repositories" class="gst-repository-grid">${cards}</div>
+  <div id="user-starred-repos"><div class="d-lg-flex"><div class="col-lg-9 gst-repository-grid">
   <div class="paginate-container"><a href="#next">Next</a></div></div>
   <div class="col-lg-3"><h2>Starred topics</h2><a href="#topic">Microcontroller</a></div>
   </div></div></div></div></div></div></main></body></html>`;
