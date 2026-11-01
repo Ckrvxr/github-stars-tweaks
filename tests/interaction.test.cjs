@@ -180,14 +180,14 @@ test('keeps the native list dialog invisible until its position is corrected', (
   browser('open', `${origin}/Fixture?tab=stars`);
 });
 
-test('offers three sorting options with Recently starred as the default', () => {
+test('offers native and name sorting with Recently starred as the default', () => {
   const menu = browser('eval', `(() => ({
     options: [...document.querySelectorAll('#gst-sort-menu [role="menuitemradio"]')].map(item => item.textContent.trim()),
     checked: document.querySelector('#gst-sort-menu [aria-checked="true"]')?.textContent.trim(),
     summary: document.querySelector('#gst-sort-menu summary').textContent.trim(),
     value: document.querySelector('#gst-sort').value
   }))()`);
-  assert.deepEqual(menu.options, ['Recently starred', 'Recently active', 'Most stars']);
+  assert.deepEqual(menu.options, ['Recently starred', 'Recently active', 'Most stars', 'Name']);
   assert.equal(menu.checked, 'Recently starred');
   assert.equal(menu.summary, 'Sort: Recently starred');
   assert.equal(menu.value, 'default');
@@ -243,6 +243,59 @@ test('uses the list total immediately when only sorting a category', () => {
   chooseFilter('sort', 'updated');
   assert.equal(current().status, '3 repositories');
   assert.deepEqual(browser('eval', 'window.__sortedRequests'), ['1']);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('loads every overview page before name sorting, then streams sorted batches', () => {
+  browser('open', `${origin}/Fixture?tab=stars`);
+  browser('wait', '--fn', `!!document.querySelector('#gst-navigation').__gstLists`);
+  browser('eval', `(() => {
+    const original = window.fetch;
+    window.__nameRequests = [];
+    window.fetch = (input, ...args) => {
+      const url = new URL(input, location.href);
+      if (url.pathname === '/Fixture' && url.searchParams.get('tab') === 'stars') {
+        const page = url.searchParams.get('page') || '1';
+        window.__nameRequests.push({ page, sort: url.searchParams.get('sort') });
+        if (page === '2') return new Promise((resolve, reject) => {
+          window.__releaseNamePage = () => original(input, ...args).then(resolve, reject);
+        });
+      }
+      return original(input, ...args);
+    };
+  })()`);
+
+  chooseFilter('sort', 'name');
+  browser('wait', '--fn', `typeof window.__releaseNamePage === 'function'`);
+  assert.equal(current().status, 'Loading repositories…');
+  assert.deepEqual(current().cards.slice(0, 3), ['alpha/one', 'bravo/two', 'charlie/three'],
+    'do not replace the list with a partial sort');
+
+  browser('eval', 'window.__releaseNamePage()');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '40 repositories'`);
+  assert.deepEqual(current().cards.slice(0, 4), ['alpha/one', 'bravo/two', 'bulk/repo-1', 'bulk/repo-10']);
+  assert.equal(current().cards.length, 30, 'show only the first dynamically loaded batch');
+  assert.deepEqual(browser('eval', 'window.__nameRequests'), [
+    { page: '1', sort: null }, { page: '2', sort: null },
+  ], 'custom name sorting must fetch all GitHub pages without sending an unsupported sort');
+
+  browser('eval', 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  browser('eval', `document.querySelector('.gst-stream').scrollIntoView()`);
+  browser('wait', '--fn', `document.querySelectorAll('#user-starred-repos .col-lg-9 > .col-12').length === 40`);
+  assert.deepEqual(current().cards.slice(-3), ['charlie/three', 'delta/four', 'echo/five']);
+  browser('open', `${origin}/Fixture?tab=stars`);
+});
+
+test('sorts and filters within the selected list by owner then repository name', () => {
+  openList('ai', 'AI');
+  chooseFilter('sort', 'name');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '3 repositories'`);
+  assert.deepEqual(current().cards, ['alpha/one', 'charlie/three', 'delta/four']);
+
+  browser('fill', '#gst-query', 'target');
+  browser('click', '#gst-submit');
+  browser('wait', '--fn', `document.querySelector('#gst-results-status')?.textContent === '2 matching repositories'`);
+  assert.deepEqual(current().cards, ['charlie/three', 'delta/four']);
   browser('open', `${origin}/Fixture?tab=stars`);
 });
 

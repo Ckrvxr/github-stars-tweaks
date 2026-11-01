@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildStarsUrl, nextPageUrl, filterRepositoriesByMembership,
-  orderRepositoriesByMembership, getRepositoryLoadPlan } = require('../github-stars-tweaks.user.js');
+  orderRepositoriesByMembership, sortRepositoriesByName, getRepositoryLoadPlan } = require('../github-stars-tweaks.user.js');
 
 const origin = 'https://github.com';
 
@@ -18,10 +18,12 @@ test('builds GitHub search using the selected filters and native sort', () => {
   assert.equal(url.searchParams.get('direction'), 'desc');
 });
 
-test('default search omits filters and uses GitHub default order', () => {
-  const url = new URL(buildStarsUrl('Ckrvxr', {}), origin);
-  assert.equal(url.pathname, '/Ckrvxr');
-  assert.equal(url.search, '?tab=stars');
+test('default and custom name sorting stay out of GitHub search parameters', () => {
+  const defaultUrl = new URL(buildStarsUrl('Ckrvxr', {}), origin);
+  const nameUrl = new URL(buildStarsUrl('Ckrvxr', { sort: 'name' }), origin);
+  assert.equal(defaultUrl.pathname, '/Ckrvxr');
+  assert.equal(defaultUrl.search, '?tab=stars');
+  assert.equal(nameUrl.search, '?tab=stars');
 });
 
 function pageWithLinks(links) {
@@ -51,7 +53,23 @@ test('selects an explicit loading strategy for each repository scope', () => {
     [list, { ...defaults, query: 'compiler' }, 'filtered-list-order'],
     [list, { ...defaults, sort: 'stars' }, 'search-list'],
     [all, defaults, 'search'],
+    [all, { ...defaults, sort: 'name' }, 'name'],
+    [list, { ...defaults, sort: 'name' }, 'name'],
   ]) assert.equal(getRepositoryLoadPlan(route, filters), plan);
+});
+
+test('sorts repositories by owner then repository name without regard to case', () => {
+  const repositories = [
+    { key: '/bob/alpha' },
+    { key: '/ALICE/zeta' },
+    { key: '/alice/Beta' },
+    { key: '/alice/alpha' },
+  ];
+
+  assert.deepEqual(sortRepositoriesByName(repositories).map(repo => repo.key), [
+    '/alice/alpha', '/alice/Beta', '/ALICE/zeta', '/bob/alpha',
+  ]);
+  assert.equal(repositories[0].key, '/bob/alpha', 'sorting must not mutate the input array');
 });
 
 test('filters a whole category while preserving GitHub result order', () => {

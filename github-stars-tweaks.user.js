@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub Stars Tweaks
 // @namespace    https://github.com/
-// @version      1.2.0
+// @version      1.3.0
 // @description  GitHub stars page tweaks
 // @author       Ckrvxr
 // @license      Apache-2.0
@@ -17,6 +17,7 @@
   'use strict';
 
   const ORIGIN = 'https://github.com';
+  const NAME_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'accent' });
 
   function getRoute(value) {
     let url;
@@ -74,7 +75,7 @@
     if (filters.query) url.searchParams.set('q', filters.query);
     if (filters.type) url.searchParams.set('type', filters.type);
     if (filters.language) url.searchParams.set('language', filters.language);
-    if (filters.sort && filters.sort !== 'created' && filters.sort !== 'default') {
+    if (filters.sort === 'updated' || filters.sort === 'stars') {
       url.searchParams.set('sort', filters.sort);
       url.searchParams.set('direction', 'desc');
     }
@@ -102,8 +103,21 @@
     return [...membership].filter(key => byKey.has(key)).map(key => byKey.get(key));
   }
 
+  function sortRepositoriesByName(repositories) {
+    return [...repositories].sort((left, right) => {
+      const [leftOwner, leftName] = left.key.slice(1).split('/');
+      const [rightOwner, rightName] = right.key.slice(1).split('/');
+      return NAME_COLLATOR.compare(leftOwner, rightOwner) || NAME_COLLATOR.compare(leftName, rightName);
+    });
+  }
+
+  function hasRepositoryFilters(filters) {
+    return !!(filters.query || filters.type || filters.language);
+  }
+
   function getRepositoryLoadPlan(route, filters) {
-    const hasFilters = !!(filters.query || filters.type || filters.language);
+    if (filters.sort === 'name') return 'name';
+    const hasFilters = hasRepositoryFilters(filters);
     if (route.kind !== 'list') return 'search';
     if (filters.sort !== 'default') return 'search-list';
     return hasFilters ? 'filtered-list-order' : 'native-list';
@@ -128,7 +142,7 @@
   if (typeof module === 'object' && module.exports && typeof window === 'undefined') {
     module.exports = { getRoute, extractLists, revealSelection, getProfileElements,
       buildStarsUrl, nextPageUrl, filterRepositoriesByMembership, orderRepositoriesByMembership,
-      getRepositoryLoadPlan, ageRatio };
+      sortRepositoriesByName, getRepositoryLoadPlan, ageRatio };
     return;
   }
 
@@ -831,17 +845,21 @@
 
   const REPOSITORIES_PER_BATCH = 30;
 
-  function renderResults(target, repositories, status) {
+  function formatRepositoryCount(count, qualifier = '') {
+    return `${count} ${qualifier}${count === 1 ? 'repository' : 'repositories'}`;
+  }
+
+  function renderResults(target, repositories, status, { countText, emptyText }) {
     let index = REPOSITORIES_PER_BATCH;
     const children = repositories.slice(0, REPOSITORIES_PER_BATCH).map(repository => repository.card);
     if (!repositories.length) {
       const empty = document.createElement('p');
       empty.className = 'gst-empty';
-      empty.textContent = 'No repositories match these filters.';
+      empty.textContent = emptyText;
       children.push(empty);
     }
     target.replaceChildren(...children);
-    status.textContent = `${repositories.length} matching ${repositories.length === 1 ? 'repository' : 'repositories'}`;
+    status.textContent = countText;
     startStream(target, index < repositories.length, async () => {
       const cards = repositories.slice(index, index + REPOSITORIES_PER_BATCH).map(repository => repository.card);
       index += REPOSITORIES_PER_BATCH;
@@ -969,7 +987,7 @@
     sort.id = 'gst-sort';
     sort.className = 'form-select';
     sort.setAttribute('aria-label', 'Sort repositories');
-    addOptions(sort, [['default', 'Recently starred'], ['updated', 'Recently active'], ['stars', 'Most stars']]);
+    addOptions(sort, [['default', 'Recently starred'], ['updated', 'Recently active'], ['stars', 'Most stars'], ['name', 'Name']]);
 
     const status = document.createElement('span');
     status.id = 'gst-results-status';
@@ -1024,6 +1042,22 @@
       collectRepositories(listUrl, route, signal),
     ]);
     return orderRepositoriesByMembership(all, new Set(members.map(repository => repository.key)));
+  }
+
+  async function loadNameSortedRepositories(route, filters, signal) {
+    const listUrl = `${ORIGIN}/stars/${route.owner}/lists/${route.slug}`;
+    if (route.kind === 'list' && !hasRepositoryFilters(filters)) {
+      return sortRepositoriesByName(await collectRepositories(listUrl, route, signal));
+    }
+
+    const allRoute = { owner: route.owner, kind: 'all', slug: null };
+    const searchFilters = { ...filters, sort: 'default' };
+    const [all, members] = await Promise.all([
+      collectRepositories(buildStarsUrl(route.owner, searchFilters), allRoute, signal),
+      route.kind === 'list' ? collectRepositories(listUrl, route, signal) : Promise.resolve(null),
+    ]);
+    const membership = members ? new Set(members.map(repository => repository.key)) : null;
+    return sortRepositoriesByName(filterRepositoriesByMembership(all, membership));
   }
 
   async function createSearchSession(route, filters, plan, {
@@ -1138,8 +1172,8 @@
       activeSearch = controller;
       const filters = { query: query.value.trim(), type: type.value, language: language.value, sort: sort.value };
       const plan = getRepositoryLoadPlan(route, filters);
-      const hasFilters = !!(filters.query || filters.type || filters.language);
-      status.textContent = !hasFilters && scopeTotal ? scopeTotal : 'Loading repositories…';
+      const hasFilters = hasRepositoryFilters(filters);
+      status.textContent = plan === 'name' || hasFilters || !scopeTotal ? 'Loading repositories…' : scopeTotal;
       const isActive = () => toolbar.isConnected && !controller.signal.aborted;
       try {
         const target = route.kind === 'list' ? frame.querySelector('#user-list-repositories') :
@@ -1148,7 +1182,19 @@
         if (plan === 'filtered-list-order') {
           const repositories = await loadFilteredListRepositories(route, filters, controller.signal);
           if (!isActive()) return;
-          renderResults(target, repositories, status);
+          renderResults(target, repositories, status, {
+            countText: formatRepositoryCount(repositories.length, 'matching '),
+            emptyText: 'No repositories match these filters.',
+          });
+          return;
+        }
+        if (plan === 'name') {
+          const repositories = await loadNameSortedRepositories(route, filters, controller.signal);
+          if (!isActive()) return;
+          renderResults(target, repositories, status, {
+            countText: formatRepositoryCount(repositories.length, hasFilters ? 'matching ' : ''),
+            emptyText: hasFilters ? 'No repositories match these filters.' : 'No repositories found.',
+          });
           return;
         }
 
